@@ -1,0 +1,25 @@
+/* ZCIE — "expert": black and gold; concentric precision-ring motif. */
+:root {
+  --bg: #f4f4f6; --surface: #ffffff; --surface-2: #e9e8ec; --ink: #121115; --ink-2: #55535e; --ink-3: #6f6c7c; --line: #dcdae1;
+  --accent: #906406; --accent-ink: #ffffff; --accent-soft: #f4ead2; --accent-2: #3d4a6b; --accent-2-soft: #e3e7f0;
+  --good: #1d7a4b; --good-soft: #dcf1e4; --bad: #b42a2a; --bad-soft: #f9e2e0; --warn: #b77800; --warn-soft: #fbefd3; --on-status: #ffffff;
+  --hero-bg: #0b0a08; --hero-ink: #f6f2e8; --hero-ink-2: #b5ab95; --hero-accent: #d4a537;
+  --motif: repeating-radial-gradient(circle at 78% 40%, transparent 0 22px, rgba(212,165,55,.10) 22px 23px), radial-gradient(circle at 78% 40%, rgba(212,165,55,.18), transparent 45%);
+  --sg-line: #3a3326; --sg-accent: #d4a537; --sg-accent-2: #e9d9a6; --sg-node: #14120d; --sg-ink: #f6f2e8; --sg-ink-2: #b5ab95;
+  --f-display: "Archivo", "IBM Plex Sans", "Segoe UI", sans-serif; --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; --f-mono: "IBM Plex Mono", Consolas, monospace;
+  --radius: 16px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+  --bg: #09090b; --surface: #121115; --surface-2: #1b1a20; --ink: #efedf3; --ink-2: #aeabb8; --ink-3: #7f7c8c; --line: #2a2830;
+  --accent: #d4a537; --accent-ink: #1a1203; --accent-soft: #33280f; --accent-2: #9aa7c7; --accent-2-soft: #1c2130;
+  --good: #5bd39a; --good-soft: #10301f; --bad: #ff7a7a; --bad-soft: #3a1616; --warn: #f2b84c; --warn-soft: #3a2c10; --on-status: #09090b;
+  color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #09090b; --surface: #121115; --surface-2: #1b1a20; --ink: #efedf3; --ink-2: #aeabb8; --ink-3: #7f7c8c; --line: #2a2830;
+  --accent: #d4a537; --accent-ink: #1a1203; --accent-soft: #33280f; --accent-2: #9aa7c7; --accent-2-soft: #1c2130;
+  --good: #5bd39a; --good-soft: #10301f; --bad: #ff7a7a; --bad-soft: #3a1616; --warn: #f2b84c; --warn-soft: #3a2c10; --on-status: #09090b;
+  color-scheme: dark;
+}
