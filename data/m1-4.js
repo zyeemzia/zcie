@@ -81,6 +81,46 @@ TRACK.modules.push({
      "title": "The ring is a loop, not a ladder"
     },
     {
+     "type": "cycle",
+     "title": "The Mastery Ring as a loop",
+     "caption": "Read it clockwise as a dependency chain, then notice the loop: a symptom in one segment is often caused by its neighbour, and Method wraps around everything.",
+     "center": "ZCIE",
+     "items": [
+      {
+       "label": "Method",
+       "text": "Parse, predict, prove"
+      },
+      {
+       "label": "Layer 2",
+       "text": "Loops, gateways, edge security"
+      },
+      {
+       "label": "IGP",
+       "text": "Loopback and next-hop reachability"
+      },
+      {
+       "label": "BGP",
+       "text": "Policy and scale on top of the IGP"
+      },
+      {
+       "label": "Label",
+       "text": "Transport and VPNs on IGP and BGP"
+      },
+      {
+       "label": "Fabric",
+       "text": "Overlays riding the underlay"
+      },
+      {
+       "label": "Stream",
+       "text": "Multicast and QoS across all of it"
+      },
+      {
+       "label": "Code",
+       "text": "Automate and verify every segment"
+      }
+     ]
+    },
+    {
      "type": "text",
      "text": "Practical exam tasks and real change requests are written as **constraints**, not instructions. The words that matter are small: *only*, *without*, *must*, *prefer*, *must not*, *at all times*. An engineer who reads quickly and starts typing solves the problem they imagined, not the one that was asked. Requirement parsing is the deliberate act of turning prose into a precise list of outcomes, limits and proofs."
     },
@@ -109,6 +149,46 @@ TRACK.modules.push({
        "text": "Note which other tasks touch the same devices or protocols. Changes in one task can silently break the proof of another."
       }
      ]
+    },
+    {
+     "type": "tree",
+     "title": "Decomposing one task before typing",
+     "caption": "The aggregation task from the scenario below, split into the four lists an expert writes first. The proof is defined before any configuration exists.",
+     "root": {
+      "label": "Task: one /16 to the provider",
+      "children": [
+       {
+        "label": "Explicit",
+        "text": "Provider receives only 10.40.0.0/16"
+       },
+       {
+        "label": "Prohibition",
+        "text": "Specifics must not be suppressed inside the AS"
+       },
+       {
+        "label": "Implicit",
+        "children": [
+         {
+          "label": "Component /24s present in BGP"
+         },
+         {
+          "label": "iBGP to both reflectors up"
+         }
+        ]
+       },
+       {
+        "label": "Proof",
+        "children": [
+         {
+          "label": "Advertised routes to the provider: /16 only"
+         },
+         {
+          "label": "Reflector tables still hold the /24s"
+         }
+        ]
+       }
+      ]
+     }
     },
     {
      "type": "table",
@@ -275,6 +355,16 @@ TRACK.modules.push({
     {
      "type": "reflection",
      "prompt": "Think of the last change you made that had an unexpected side effect. Which implicit requirement or interaction did you miss, and which of the five parsing passes would have caught it?"
+    },
+    {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "Read every task before typing; constraints hide in small words such as only, without and prefer.",
+      "Split each task into explicit requirements, implicit prerequisites, prohibitions and a written proof.",
+      "Take a baseline snapshot first so pre-existing faults are not blamed on your changes.",
+      "Faults cross ring segments: always ask which neighbouring segment could cause the symptom."
+     ]
     },
     {
      "type": "quiz",
@@ -489,6 +579,98 @@ TRACK.modules.push({
      "note": "The routing table lists two equal-cost paths and marks Gi0/0 with an asterisk, which only shows the next path to be used for process-switched traffic. The FIB hash for this source and destination pair actually selects Gi0/1, confirmed by the sourced trace. A task asking for traffic to use R2 is not satisfied."
     },
     {
+     "type": "topology",
+     "title": "The flow being walked",
+     "caption": "Both paths are equal cost in the RIB, but the FIB hash for 10.0.0.1 → 10.20.0.10 selects the bold path via R3. The last hop is resolved by ARP on R4 and by the MAC table on SW3.",
+     "nodes": [
+      {
+       "id": "R1",
+       "kind": "router",
+       "label": "R1",
+       "sub": "Lo0 10.0.0.1",
+       "x": 0,
+       "y": 2
+      },
+      {
+       "id": "R2",
+       "kind": "router",
+       "label": "R2",
+       "sub": "10.0.0.2",
+       "x": 2,
+       "y": 1
+      },
+      {
+       "id": "R3",
+       "kind": "router",
+       "label": "R3",
+       "sub": "10.0.0.3",
+       "x": 2,
+       "y": 3
+      },
+      {
+       "id": "R4",
+       "kind": "router",
+       "label": "R4",
+       "sub": "Gateway for VLAN 20",
+       "x": 4,
+       "y": 2
+      },
+      {
+       "id": "SW3",
+       "kind": "switch",
+       "label": "SW3",
+       "sub": "Access switch",
+       "x": 6,
+       "y": 2
+      },
+      {
+       "id": "H",
+       "kind": "server",
+       "label": "Host",
+       "sub": "10.20.0.10",
+       "x": 6,
+       "y": 4
+      }
+     ],
+     "links": [
+      {
+       "a": "R1",
+       "b": "R2",
+       "label": "10.1.12.0/24",
+       "aEnd": "Gi0/0"
+      },
+      {
+       "a": "R1",
+       "b": "R3",
+       "label": "10.1.13.0/24",
+       "aEnd": "Gi0/1",
+       "style": "bold"
+      },
+      {
+       "a": "R2",
+       "b": "R4"
+      },
+      {
+       "a": "R3",
+       "b": "R4",
+       "label": "10.3.30.0/24",
+       "style": "bold"
+      },
+      {
+       "a": "R4",
+       "b": "SW3",
+       "label": "VLAN 20",
+       "style": "bold"
+      },
+      {
+       "a": "SW3",
+       "b": "H",
+       "aEnd": "Gi1/0/12",
+       "style": "bold"
+      }
+     ]
+    },
+    {
      "type": "callout",
      "kind": "warning",
      "text": "A router ping uses the egress interface address as its source unless told otherwise, follows whatever hash bucket that source pair lands in, and proves only one direction of one flow. Always source tests from the address named in the task and confirm the path, not just the reply.",
@@ -497,7 +679,7 @@ TRACK.modules.push({
     {
      "type": "cli",
      "title": "Walking the last hop at layer 2",
-     "device": "SW3 · IOS-style CLI",
+     "device": "R4 and SW3 · IOS-style CLI",
      "lines": [
       "R4# show ip arp 10.20.0.10",
       "Internet  10.20.0.10     3   0050.56aa.0102  ARPA   Vlan20",
@@ -615,6 +797,16 @@ TRACK.modules.push({
     {
      "type": "reflection",
      "prompt": "Pick a recent incident. Write the packet walk for the failing flow and mark the first hop where your prediction would have differed from reality. How long would it have taken to reach that point with this method?"
+    },
+    {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "Walk one precisely defined packet hop by hop: ingress, lookup, resolve, rewrite, egress and return.",
+      "Match the evidence to the claim: forwarding claims need FIB lookups or sourced traces, not only the RIB.",
+      "Source every test from the address named in the requirement and check both directions.",
+      "When observation and prediction differ, stop and explain the difference before changing anything else."
+     ]
     },
     {
      "type": "quiz",
@@ -848,28 +1040,56 @@ TRACK.modules.push({
      "note": "The session cannot form because there is no route to the peer's loopback, and R9 has no router LSA in R5's database at all. The fault is in the IGP, not in BGP. Moving to the IGP ring immediately saves the time otherwise spent checking BGP configuration."
     },
     {
-     "type": "flow",
+     "type": "tree",
+     "title": "Triage a BGP session by its state",
+     "caption": "Read the state before opening the configuration: each state rules out whole layers. The R5 output above stops at Active, so the search moves straight to reachability.",
+     "root": {
+      "label": "Session not Established",
+      "children": [
+       {
+        "label": "Idle",
+        "text": "Administratively down, prefix limit exceeded, or waiting before a retry"
+       },
+       {
+        "label": "Active",
+        "text": "TCP cannot complete: no route to the peer, wrong update source, port 179 filtered, multihop or authentication missing"
+       },
+       {
+        "label": "OpenSent / OpenConfirm",
+        "text": "OPEN rejected: wrong AS, duplicate router ID, hold time or capability mismatch"
+       },
+       {
+        "label": "Established, 0 prefixes",
+        "text": "Address family not activated, inbound policy, unresolvable next hop or RIB-failure"
+       }
+      ]
+     }
+    },
+    {
+     "type": "cycle",
      "title": "The hypothesis cycle",
+     "caption": "Each turn of the loop tests exactly one hypothesis and should halve the search space; an inconclusive result means the test was badly chosen, not that you need more commands.",
+     "center": "One hypothesis at a time",
      "items": [
       {
        "label": "Observe",
-       "text": "Collect the symptom precisely"
+       "text": "Collect the symptom precisely: source, destination, protocol, since when"
       },
       {
        "label": "Hypothesise",
-       "text": "One cause, one deciding test"
+       "text": "One falsifiable cause and the single test that decides it"
       },
       {
        "label": "Test",
-       "text": "Read only the deciding fields"
+       "text": "Run it and read only the deciding fields"
       },
       {
        "label": "Decide",
-       "text": "Confirmed, refuted, or inconclusive"
+       "text": "Confirmed, refuted or inconclusive; write it in the log"
       },
       {
        "label": "Narrow",
-       "text": "Halve the search space and repeat"
+       "text": "Cut the search space in half and go round again"
       }
      ]
     },
@@ -996,6 +1216,16 @@ TRACK.modules.push({
     {
      "type": "reflection",
      "prompt": "Which isolation method do you default to? Describe a fault where a different method would have been faster, and what signal should have triggered the switch."
+    },
+    {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "Never run a command without a written hypothesis and the single test that would disprove it.",
+      "Choose the isolation method from the symptom: follow the path, divide and conquer, compare, bottom-up or top-down.",
+      "Condition debugs to one interface or neighbour, log to the buffer and stop them as soon as they answer.",
+      "Time-box every task and park it with written evidence when no live hypothesis remains."
+     ]
     },
     {
      "type": "quiz",
@@ -1209,6 +1439,47 @@ TRACK.modules.push({
      ]
     },
     {
+     "type": "timeline",
+     "title": "An eight-hour practical lab, planned",
+     "caption": "An example for a 480-minute lab with a 20-minute read and a 40-minute sweep, matching the budget arithmetic below; scale the marks to the published duration.",
+     "items": [
+      {
+       "when": "0:00",
+       "label": "Read and map",
+       "text": "Every task read, dependency map drawn, no configuration"
+      },
+      {
+       "when": "0:20",
+       "label": "Foundations",
+       "text": "Layer 2, addressing and the IGP, each verified"
+      },
+      {
+       "when": "1:45",
+       "label": "Core services",
+       "text": "BGP, labels and VPNs, proven one by one"
+      },
+      {
+       "when": "4:00",
+       "label": "Checkpoint",
+       "text": "Points earned against plan; re-prioritise and park"
+      },
+      {
+       "when": "4:15",
+       "label": "Features",
+       "text": "Overlays, multicast, QoS and automation tasks"
+      },
+      {
+       "when": "7:20",
+       "label": "Final sweep",
+       "text": "Re-verify everything, remove debugs, save"
+      },
+      {
+       "when": "8:00",
+       "label": "End"
+      }
+     ]
+    },
+    {
      "type": "formula",
      "title": "Time budget arithmetic",
      "items": [
@@ -1343,6 +1614,16 @@ TRACK.modules.push({
     {
      "type": "reflection",
      "prompt": "Design the lab you will use for the rest of this course. Which topologies do you need, how will you reset them, and how will you record what you learned from each experiment?"
+    },
+    {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "Treat the lab as an instrument: topology as code, versioned startup configurations and snapshots.",
+      "Order work by dependency weight, not by raw points.",
+      "Budget minutes per point after subtracting reading and sweep time; park a task at about twice its budget.",
+      "Reserve the last 30 to 45 minutes to re-verify everything, because late changes break early proofs."
+     ]
     },
     {
      "type": "quiz",
@@ -1561,6 +1842,88 @@ TRACK.modules.push({
      "note": "The region name uses a zero instead of the letter O. SW7 is its own region, both uplinks are boundary ports, and at a boundary every instance follows the CIST role. Gi1/0/50 therefore blocks all VLANs, including those that the design intended to forward on it for instance 2."
     },
     {
+     "type": "topology",
+     "title": "A one-character region split",
+     "caption": "SW7's region name has a zero instead of the letter O, so both of its uplinks are boundary ports. Every instance, including MSTI 2, follows the CIST role there, and Gi1/0/50 blocks all VLANs.",
+     "nodes": [
+      {
+       "id": "SW1",
+       "kind": "l3switch",
+       "label": "SW1",
+       "sub": "CIST root, MSTI 1 root",
+       "x": 1,
+       "y": 1
+      },
+      {
+       "id": "SW2",
+       "kind": "l3switch",
+       "label": "SW2",
+       "sub": "MSTI 2 root",
+       "x": 5,
+       "y": 1
+      },
+      {
+       "id": "SW5",
+       "kind": "switch",
+       "label": "SW5",
+       "sub": "Access, same region",
+       "x": 3,
+       "y": 3
+      },
+      {
+       "id": "SW7",
+       "kind": "switch",
+       "label": "SW7",
+       "sub": "Name DC-C0RE",
+       "x": 3,
+       "y": 5
+      }
+     ],
+     "links": [
+      {
+       "a": "SW1",
+       "b": "SW2",
+       "label": "Trunk, all VLANs"
+      },
+      {
+       "a": "SW1",
+       "b": "SW5"
+      },
+      {
+       "a": "SW2",
+       "b": "SW5"
+      },
+      {
+       "a": "SW1",
+       "b": "SW7",
+       "label": "Gi1/0/49: Root FWD"
+      },
+      {
+       "a": "SW2",
+       "b": "SW7",
+       "label": "Gi1/0/50: Altn BLK",
+       "style": "dashed"
+      }
+     ],
+     "zones": [
+      {
+       "label": "MST region DC-CORE",
+       "x": 1,
+       "y": 1,
+       "w": 5,
+       "h": 3
+      },
+      {
+       "label": "Region DC-C0RE",
+       "x": 2,
+       "y": 5,
+       "w": 3,
+       "h": 1,
+       "tone": "warn"
+      }
+     ]
+    },
+    {
      "type": "callout",
      "kind": "warning",
      "text": "MST computes each instance topology without looking at which VLANs a trunk actually carries. If VLAN 210 is mapped to instance 2 but is allowed only on a link that instance 2 blocks, VLAN 210 is cut off even though spanning tree reports a healthy, loop-free topology. Inside a region, allow every VLAN of an instance on every trunk that participates in that instance, or prune only in ways that match the instance topology exactly.",
@@ -1728,6 +2091,16 @@ TRACK.modules.push({
      "prompt": "Draw your current or a familiar campus as MST regions. Where are the boundaries, where is the CIST root, and which VLANs would be at risk from a pruning blackhole?"
     },
     {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "An MST region is defined by identical name, revision and VLAN-to-instance mapping; one typo creates a new region.",
+      "At a region boundary every instance follows the CIST port role.",
+      "MST ignores trunk allowed lists, so pruning that disagrees with the instance topology blackholes VLANs.",
+      "Design the mapping once, root every instance on the core and pre-stage the region block before migrating."
+     ]
+    },
+    {
      "type": "quiz",
      "items": [
       {
@@ -1805,28 +2178,53 @@ TRACK.modules.push({
      "text": "Rapid spanning tree converges in milliseconds on point-to-point links because it does not wait for timers. A designated port sends a **proposal**; the downstream bridge **syncs** by blocking its non-edge designated ports, then returns an **agreement**, and the designated port forwards immediately. The sync then ripples downstream. Timers matter only on shared segments, toward legacy bridges, and to detect lost BPDUs."
     },
     {
-     "type": "flow",
+     "type": "sequence",
      "title": "Proposal and agreement on one link",
-     "items": [
+     "caption": "No timer appears anywhere: each link converges as soon as the downstream bridge has synced, and the handshake then ripples one link further.",
+     "actors": [
+      "Bridge A (upstream)",
+      "Bridge B",
+      "Bridge C (downstream)"
+     ],
+     "steps": [
       {
-       "label": "Proposal",
-       "text": "Upstream designated port sends a BPDU with the proposal flag"
+       "from": 0,
+       "to": 1,
+       "label": "BPDU with proposal flag",
+       "note": "A's designated port is discarding"
       },
       {
-       "label": "Sync",
-       "text": "Downstream bridge blocks its non-edge designated ports"
+       "from": 1,
+       "to": 1,
+       "label": "Sync: block non-edge designated ports"
       },
       {
+       "from": 1,
+       "to": 0,
+       "label": "BPDU with agreement flag",
+       "reply": true
+      },
+      {
+       "from": 0,
+       "to": 0,
+       "label": "Designated port forwards at once"
+      },
+      {
+       "from": 1,
+       "to": 2,
+       "label": "Proposal toward C",
+       "note": "The sync ripples downstream"
+      },
+      {
+       "from": 2,
+       "to": 1,
        "label": "Agreement",
-       "text": "Downstream root port replies with the agreement flag"
+       "reply": true
       },
       {
-       "label": "Forward",
-       "text": "Upstream port moves to forwarding without timers"
-      },
-      {
-       "label": "Ripple",
-       "text": "Downstream designated ports repeat the handshake"
+       "from": 1,
+       "to": 1,
+       "label": "Port toward C forwards"
       }
      ]
     },
@@ -1882,6 +2280,100 @@ TRACK.modules.push({
        "Broadcast, multicast or unknown unicast above threshold",
        "Drop excess, trap or shut down"
       ]
+     ]
+    },
+    {
+     "type": "topology",
+     "title": "Where each guard belongs",
+     "caption": "Root guard faces down from the distribution layer, loop guard protects the non-designated uplinks of access switches, and BPDU guard sits on every host-facing edge port.",
+     "nodes": [
+      {
+       "id": "D1",
+       "kind": "l3switch",
+       "label": "DSW1",
+       "sub": "Root bridge",
+       "x": 2,
+       "y": 1
+      },
+      {
+       "id": "D2",
+       "kind": "l3switch",
+       "label": "DSW2",
+       "sub": "Backup root",
+       "x": 5,
+       "y": 1
+      },
+      {
+       "id": "A1",
+       "kind": "switch",
+       "label": "ASW1",
+       "x": 1,
+       "y": 3
+      },
+      {
+       "id": "A2",
+       "kind": "switch",
+       "label": "ASW2",
+       "x": 6,
+       "y": 3
+      },
+      {
+       "id": "H1",
+       "kind": "host",
+       "label": "Host",
+       "sub": "Edge port",
+       "x": 1,
+       "y": 5
+      },
+      {
+       "id": "H2",
+       "kind": "host",
+       "label": "Host",
+       "sub": "Edge port",
+       "x": 6,
+       "y": 5
+      }
+     ],
+     "links": [
+      {
+       "a": "D1",
+       "b": "D2",
+       "label": "UDLD on fibre"
+      },
+      {
+       "a": "D1",
+       "b": "A1",
+       "aEnd": "Root guard"
+      },
+      {
+       "a": "D2",
+       "b": "A1",
+       "aEnd": "Root guard",
+       "bEnd": "Loop guard",
+       "style": "dashed"
+      },
+      {
+       "a": "D1",
+       "b": "A2",
+       "aEnd": "Root guard",
+       "bEnd": "Loop guard",
+       "style": "dashed"
+      },
+      {
+       "a": "D2",
+       "b": "A2",
+       "aEnd": "Root guard"
+      },
+      {
+       "a": "A1",
+       "b": "H1",
+       "aEnd": "BPDU guard"
+      },
+      {
+       "a": "A2",
+       "b": "H2",
+       "aEnd": "BPDU guard"
+      }
      ]
     },
     {
@@ -2078,6 +2570,16 @@ TRACK.modules.push({
      "prompt": "Where in your network would a single misbehaving port cause topology changes across the whole layer 2 domain? What would you configure there first?"
     },
     {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "Rapid spanning tree converges by proposal and agreement on point-to-point links, not by timers.",
+      "Only non-edge ports moving to forwarding cause topology changes and MAC flushes, so make every host port an edge port.",
+      "BPDU guard on host ports, root guard toward access switches, loop guard or UDLD on point-to-point uplinks.",
+      "BPDU filter hides loops from spanning tree; treat every use as a documented exception."
+     ]
+    },
+    {
      "type": "quiz",
      "items": [
       {
@@ -2181,6 +2683,84 @@ TRACK.modules.push({
      ]
     },
     {
+     "type": "sequence",
+     "title": "Snooping builds the binding that ARP inspection checks",
+     "caption": "The rogue offer dies on an untrusted port, the ACK through the trusted uplink creates the binding, and every later ARP from the client is checked against it.",
+     "actors": [
+      "Client on Gi1/0/7",
+      "ASW4 (snooping)",
+      "Rogue server",
+      "Relay and server"
+     ],
+     "steps": [
+      {
+       "from": 0,
+       "to": 1,
+       "label": "DHCPDISCOVER (broadcast)"
+      },
+      {
+       "from": 1,
+       "to": 3,
+       "label": "Forwarded on the trusted uplink"
+      },
+      {
+       "from": 2,
+       "to": 1,
+       "label": "DHCPOFFER on an untrusted port"
+      },
+      {
+       "from": 1,
+       "to": 1,
+       "label": "Rogue offer dropped"
+      },
+      {
+       "from": 3,
+       "to": 1,
+       "label": "DHCPOFFER via trusted uplink",
+       "reply": true
+      },
+      {
+       "from": 1,
+       "to": 0,
+       "label": "Offer delivered",
+       "reply": true
+      },
+      {
+       "from": 0,
+       "to": 1,
+       "label": "DHCPREQUEST"
+      },
+      {
+       "from": 1,
+       "to": 3,
+       "label": "Request forwarded"
+      },
+      {
+       "from": 3,
+       "to": 1,
+       "label": "DHCPACK 10.1.10.57",
+       "reply": true
+      },
+      {
+       "from": 1,
+       "to": 1,
+       "label": "Binding: MAC, IP, VLAN 10, Gi1/0/7"
+      },
+      {
+       "from": 1,
+       "to": 0,
+       "label": "DHCPACK delivered",
+       "reply": true
+      },
+      {
+       "from": 0,
+       "to": 1,
+       "label": "ARP from 10.1.10.57",
+       "note": "Matches the binding: forwarded"
+      }
+     ]
+    },
+    {
      "type": "table",
      "title": "What each feature validates",
      "head": [
@@ -2276,6 +2856,12 @@ TRACK.modules.push({
      "kind": "pro",
      "text": "Give statically addressed hosts static bindings or ARP ACL entries before enabling inspection, and store the binding table persistently. Without persistence, a switch reload empties the table and source guard drops every client until each renews its lease, which can take hours.",
      "title": "Static hosts and reloads"
+    },
+    {
+     "type": "callout",
+     "kind": "warning",
+     "title": "IPv6 needs its own first-hop security",
+     "text": "Everything above protects IPv4. IPv6 hosts learn their gateway from router advertisements and their addresses from SLAAC or DHCPv6, so any access VLAN with IPv6 enabled, even unintentionally, needs **RA guard**, **DHCPv6 guard** and neighbour-discovery inspection or IPv6 source guard built from an IPv6 binding table. A single rogue router advertisement can redirect a whole VLAN while every IPv4 control reports a clean bill of health."
     },
     {
      "type": "formula",
@@ -2415,6 +3001,16 @@ TRACK.modules.push({
      "prompt": "List the statically addressed devices in one of your access VLANs. How would you discover the ones you do not know about before enabling ARP inspection?"
     },
     {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "DHCP snooping is the root of the chain: trust only uplinks and legitimate server ports.",
+      "ARP inspection and source guard trust the binding table, so cover static hosts and store bindings persistently.",
+      "Agree option 82 behaviour between snooping switches and relays before enforcing.",
+      "IPv6 needs its own controls: RA guard, DHCPv6 guard and neighbour-discovery inspection."
+     ]
+    },
+    {
      "type": "quiz",
      "items": [
       {
@@ -2544,6 +3140,103 @@ TRACK.modules.push({
      "title": "The loop-prevention rule"
     },
     {
+     "type": "topology",
+     "title": "A multi-chassis pair and its failure domains",
+     "caption": "Both peers forward for Po10 and present one LACP system ID. The keepalive takes a separate out-of-band path so a peer-link failure can be told apart from a dead peer; the orphan host is the first casualty when the secondary suspends its ports.",
+     "nodes": [
+      {
+       "id": "C",
+       "kind": "router",
+       "label": "Core",
+       "sub": "Routed uplinks",
+       "x": 3,
+       "y": 0
+      },
+      {
+       "id": "M",
+       "kind": "switch",
+       "label": "OOB switch",
+       "sub": "Management network",
+       "x": 3,
+       "y": 1.5
+      },
+      {
+       "id": "D1",
+       "kind": "l3switch",
+       "label": "DSW1",
+       "sub": "Primary",
+       "x": 1,
+       "y": 3
+      },
+      {
+       "id": "D2",
+       "kind": "l3switch",
+       "label": "DSW2",
+       "sub": "Secondary",
+       "x": 5,
+       "y": 3
+      },
+      {
+       "id": "A",
+       "kind": "switch",
+       "label": "ASW",
+       "sub": "LACP Po10 to both",
+       "x": 3,
+       "y": 5
+      },
+      {
+       "id": "O",
+       "kind": "host",
+       "label": "Orphan host",
+       "sub": "Single-attached",
+       "x": 6,
+       "y": 5
+      }
+     ],
+     "links": [
+      {
+       "a": "C",
+       "b": "D1"
+      },
+      {
+       "a": "C",
+       "b": "D2"
+      },
+      {
+       "a": "D1",
+       "b": "D2",
+       "label": "Peer link",
+       "style": "bold"
+      },
+      {
+       "a": "D1",
+       "b": "M",
+       "label": "keepalive",
+       "style": "dashed"
+      },
+      {
+       "a": "D2",
+       "b": "M",
+       "label": "keepalive",
+       "style": "dashed"
+      },
+      {
+       "a": "D1",
+       "b": "A",
+       "bEnd": "Po10"
+      },
+      {
+       "a": "D2",
+       "b": "A",
+       "bEnd": "Po10"
+      },
+      {
+       "a": "D2",
+       "b": "O"
+      }
+     ]
+    },
+    {
      "type": "table",
      "title": "Failure handling",
      "head": [
@@ -2580,11 +3273,17 @@ TRACK.modules.push({
      ]
     },
     {
+     "type": "callout",
+     "kind": "insight",
+     "title": "Where multi-chassis aggregation is heading",
+     "text": "In data-centre fabrics built today, standards-based **EVPN multihoming** (Ethernet segments signalled in BGP, covered in the Fabric module) increasingly replaces peer-link pairs: no peer link, more than two leaves per segment and mixed platforms. Peer-link pairs remain common in campus and brownfield networks, so an expert must be able to troubleshoot both."
+    },
+    {
      "type": "compare",
      "title": "Gateway redundancy options",
      "columns": [
       {
-       "title": "VRRP (RFC 5798)",
+       "title": "VRRP version 3 (RFC 9568, which replaced RFC 5798)",
        "items": [
         "One master forwards, backups listen",
         "Preemption enabled by default",
@@ -2781,6 +3480,16 @@ TRACK.modules.push({
      "prompt": "In your environment, which devices are attached to only one switch of a redundant pair? What would they experience during a peer-link failure?"
     },
     {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "Multi-chassis aggregation works because frames from the peer link never leave a member port whose peer member is up.",
+      "Keep the peer link and keepalive on separate physical paths and modules, and avoid single-attached devices on the secondary.",
+      "VRRP preempts by default; add a preemption delay longer than routing convergence after a reload.",
+      "Tracking must drop the master strictly below the backup, and the master for each VLAN should align with its spanning-tree root."
+     ]
+    },
+    {
      "type": "quiz",
      "items": [
       {
@@ -2858,44 +3567,53 @@ TRACK.modules.push({
      "text": "Provider bridging (IEEE 802.1ad, commonly called QinQ) lets a provider carry a customer's entire VLAN space across its network inside a single service VLAN. The provider edge pushes an outer **S-tag** onto every customer frame, whether or not the frame already has a customer **C-tag**. Customers keep their own VLAN numbering, and the provider needs only one VLAN per customer service."
     },
     {
-     "type": "layers",
-     "title": "A double-tagged frame, outer header first",
-     "items": [
+     "type": "packet",
+     "title": "An 802.1ad double-tagged frame header",
+     "caption": "Each tag adds 4 bytes before the customer EtherType. The standard outer TPID is 0x88A8, but some implementations still default to 0x8100, so agree it per interconnect.",
+     "fields": [
       {
-       "label": "Ethernet header",
-       "parts": [
-        "destination MAC",
-        "source MAC"
-       ]
+       "label": "Destination MAC",
+       "bits": 48
       },
       {
-       "label": "S-tag",
-       "parts": [
-        "TPID 0x88A8 (some implementations default to 0x8100)",
-        "priority and drop-eligible bits",
-        "service VLAN ID"
-       ]
+       "label": "Source MAC",
+       "bits": 48
       },
       {
-       "label": "C-tag",
-       "parts": [
-        "TPID 0x8100",
-        "priority bits",
-        "customer VLAN ID"
-       ]
+       "label": "S-tag TPID 0x88A8",
+       "bits": 16
       },
       {
-       "label": "Payload",
-       "parts": [
-        "EtherType",
-        "customer data"
-       ]
+       "label": "PCP",
+       "bits": 3
       },
       {
-       "label": "Trailer",
-       "parts": [
-        "frame check sequence"
-       ]
+       "label": "DEI",
+       "bits": 1
+      },
+      {
+       "label": "S-VLAN ID",
+       "bits": 12
+      },
+      {
+       "label": "C-tag TPID 0x8100",
+       "bits": 16
+      },
+      {
+       "label": "PCP",
+       "bits": 3
+      },
+      {
+       "label": "DEI",
+       "bits": 1
+      },
+      {
+       "label": "C-VLAN ID",
+       "bits": 12
+      },
+      {
+       "label": "EtherType",
+       "bits": 16
       }
      ]
     },
@@ -2923,6 +3641,89 @@ TRACK.modules.push({
       " switchport trunk allowed vlan 500-599"
      ],
      "note": "The access VLAN on the tunnel port is the S-VLAN. Native VLAN tagging stops the outer tag being stripped on core trunks, and the extra 4 bytes of MTU make room for the added tag. Tunnelling of spanning tree and LACP must match what the customer expects across the service."
+    },
+    {
+     "type": "topology",
+     "title": "One QinQ service across the provider",
+     "caption": "PE-SW1 pushes S-tag 500 on everything ACME sends and PE-SW2 pops it; every provider link must carry the extra 4 bytes, and ACME's BPDUs and LACP cross only if tunnelling is agreed.",
+     "nodes": [
+      {
+       "id": "CA",
+       "kind": "switch",
+       "label": "ACME site A",
+       "sub": "C-VLANs 10-20",
+       "x": 0,
+       "y": 2
+      },
+      {
+       "id": "P1",
+       "kind": "switch",
+       "label": "PE-SW1",
+       "sub": "Tunnel port, S-VLAN 500",
+       "x": 2,
+       "y": 2
+      },
+      {
+       "id": "PC",
+       "kind": "switch",
+       "label": "Provider core",
+       "sub": "MTU raised by 4 bytes",
+       "x": 4,
+       "y": 2
+      },
+      {
+       "id": "P2",
+       "kind": "switch",
+       "label": "PE-SW2",
+       "sub": "Tunnel port, S-VLAN 500",
+       "x": 6,
+       "y": 2
+      },
+      {
+       "id": "CB",
+       "kind": "switch",
+       "label": "ACME site B",
+       "sub": "C-VLANs 10-20",
+       "x": 6,
+       "y": 4
+      }
+     ],
+     "links": [
+      {
+       "a": "CA",
+       "b": "P1",
+       "label": "C-tags",
+       "bEnd": "Gi1/0/10"
+      },
+      {
+       "a": "P1",
+       "b": "PC",
+       "label": "S500 + C-tag",
+       "aEnd": "Te1/1/1",
+       "style": "bold"
+      },
+      {
+       "a": "PC",
+       "b": "P2",
+       "label": "S500 + C-tag",
+       "style": "bold"
+      },
+      {
+       "a": "P2",
+       "b": "CB",
+       "label": "C-tags"
+      }
+     ],
+     "zones": [
+      {
+       "label": "Provider bridged network",
+       "x": 2,
+       "y": 2,
+       "w": 5,
+       "h": 1,
+       "tone": "accent"
+      }
+     ]
     },
     {
      "type": "table",
@@ -3132,6 +3933,16 @@ TRACK.modules.push({
      "prompt": "If a loop started in your core right now, which single link would you shut first, and how would you reach the switch to do it if in-band management failed?"
     },
     {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "QinQ pushes an S-tag on every customer frame; raise provider MTU by 4 bytes per added tag.",
+      "Never let an S-VLAN travel untagged as a native VLAN, and agree the outer TPID per interconnect.",
+      "In a loop, contain first with a targeted, reversible shutdown; never reboot away the evidence.",
+      "Follow MAC flaps, broadcast rates and topology-change sources to the port where spanning tree failed to block."
+     ]
+    },
+    {
      "type": "quiz",
      "items": [
       {
@@ -3320,6 +4131,45 @@ TRACK.modules.push({
      ]
     },
     {
+     "type": "packet",
+     "title": "The 20-byte LSA header",
+     "caption": "Type, link state ID and advertising router identify the LSA; sequence number, checksum and age decide which instance is newer.",
+     "fields": [
+      {
+       "label": "LS age",
+       "bits": 16
+      },
+      {
+       "label": "Options",
+       "bits": 8
+      },
+      {
+       "label": "LS type",
+       "bits": 8
+      },
+      {
+       "label": "Link state ID",
+       "bits": 32
+      },
+      {
+       "label": "Advertising router",
+       "bits": 32
+      },
+      {
+       "label": "LS sequence number",
+       "bits": 32
+      },
+      {
+       "label": "LS checksum",
+       "bits": 16
+      },
+      {
+       "label": "Length",
+       "bits": 16
+      }
+     ]
+    },
+    {
      "type": "steps",
      "title": "Which instance is newer?",
      "items": [
@@ -3346,28 +4196,56 @@ TRACK.modules.push({
      ]
     },
     {
-     "type": "flow",
-     "title": "Flooding on a broadcast segment",
-     "items": [
+     "type": "sequence",
+     "title": "Flooding a new LSA on a broadcast segment",
+     "caption": "DROthers talk only to the DR and BDR; the DR re-floods to everyone, and that re-flood doubles as R3's acknowledgement. The BDR stays quiet unless the DR fails.",
+     "actors": [
+      "R4 (DROther)",
+      "R1 (DR)",
+      "R2 (BDR)",
+      "R3 (DROther)"
+     ],
+     "steps": [
       {
-       "label": "Change",
-       "text": "A DROther originates or receives a new LSA"
+       "from": 3,
+       "to": 1,
+       "label": "LS Update to 224.0.0.6",
+       "note": "AllDRouters"
       },
       {
-       "label": "To the DR",
-       "text": "It sends the update to 224.0.0.6 (DR and BDR only)"
+       "from": 3,
+       "to": 2,
+       "label": "Same multicast reaches the BDR"
       },
       {
-       "label": "Re-flood",
-       "text": "The DR floods the update to 224.0.0.5 (all OSPF routers)"
+       "from": 1,
+       "to": 0,
+       "label": "DR re-floods to 224.0.0.5",
+       "note": "AllSPFRouters"
       },
       {
-       "label": "Acknowledge",
-       "text": "Routers acknowledge, explicitly or by delayed acknowledgement"
+       "from": 1,
+       "to": 3,
+       "label": "Re-flood heard by R3",
+       "reply": true,
+       "note": "Implicit acknowledgement"
       },
       {
-       "label": "Onward",
-       "text": "Each router floods the LSA out of its other interfaces in the area"
+       "from": 0,
+       "to": 1,
+       "label": "LS Ack to 224.0.0.6",
+       "reply": true,
+       "note": "Often delayed and bundled"
+      },
+      {
+       "from": 2,
+       "to": 2,
+       "label": "BDR floods only if DR fails"
+      },
+      {
+       "from": 0,
+       "to": 0,
+       "label": "Floods on its other interfaces"
       }
      ]
     },
@@ -3532,6 +4410,16 @@ TRACK.modules.push({
      "prompt": "Pick an OSPF router you operate. What would you expect its router LSA's sequence number to be, given its uptime? Check it, and explain any difference."
     },
     {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "The link-state database records who said what and when; routes are only its output.",
+      "Sequence number, then checksum, then MaxAge, then age difference decide which instance is newer.",
+      "A sequence number far above uptime ÷ 1800 s points to an unstable originator.",
+      "An external LSA with a non-zero forwarding address is used only if that address resolves through an internal OSPF route."
+     ]
+    },
+    {
      "type": "quiz",
      "items": [
       {
@@ -3665,6 +4553,82 @@ TRACK.modules.push({
     {
      "type": "text",
      "text": "A **virtual link** connects an ABR to the backbone through a non-backbone transit area. It belongs to area 0 and runs as a point-to-point, demand-style adjacency across the transit area, using the transit area's intra-area path. It is used to attach an area that has no physical connection to area 0, or to heal a partitioned backbone. The transit area cannot be any type of stub, and area 0 authentication applies to the virtual link."
+    },
+    {
+     "type": "topology",
+     "title": "A virtual link across transit area 12",
+     "caption": "Area 34 has no physical link to area 0, so ABRs R2 and R4 build a virtual link that belongs to area 0 and follows the intra-area path through R3. Area 12 must not be any kind of stub.",
+     "nodes": [
+      {
+       "id": "R1",
+       "kind": "router",
+       "label": "R1",
+       "sub": "Area 0",
+       "x": 0,
+       "y": 1
+      },
+      {
+       "id": "R2",
+       "kind": "router",
+       "label": "R2",
+       "sub": "ABR 0/12, RID 10.0.0.2",
+       "x": 2,
+       "y": 1
+      },
+      {
+       "id": "R3",
+       "kind": "router",
+       "label": "R3",
+       "sub": "Area 12",
+       "x": 3,
+       "y": 3
+      },
+      {
+       "id": "R4",
+       "kind": "router",
+       "label": "R4",
+       "sub": "ABR 12/34, RID 10.0.0.4",
+       "x": 4,
+       "y": 1
+      },
+      {
+       "id": "R5",
+       "kind": "router",
+       "label": "R5",
+       "sub": "Area 34",
+       "x": 6,
+       "y": 1
+      }
+     ],
+     "links": [
+      {
+       "a": "R1",
+       "b": "R2",
+       "label": "Area 0"
+      },
+      {
+       "a": "R2",
+       "b": "R3",
+       "label": "Area 12"
+      },
+      {
+       "a": "R3",
+       "b": "R4",
+       "label": "Area 12",
+       "bEnd": "Gi0/1"
+      },
+      {
+       "a": "R4",
+       "b": "R5",
+       "label": "Area 34"
+      },
+      {
+       "a": "R2",
+       "b": "R4",
+       "label": "Virtual link",
+       "style": "tunnel"
+      }
+     ]
     },
     {
      "type": "cli",
@@ -3840,6 +4804,16 @@ TRACK.modules.push({
      "prompt": "Find one place in a network you know where a filter is applied with a local distribute-list. Which routers could still compute paths through that router?"
     },
     {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "Know which LSA types exist in each area type and where every default route comes from.",
+      "Only type 7 LSAs with the propagate bit are translated, by the highest-router-ID NSSA ABR unless one is forced.",
+      "Virtual links belong to area 0, need a non-stub transit area and use area 0 authentication.",
+      "Filter at the ABR so the database stays consistent; a local distribute-list creates blackholes."
+     ]
+    },
+    {
      "type": "quiz",
      "items": [
       {
@@ -3978,6 +4952,121 @@ TRACK.modules.push({
      ]
     },
     {
+     "type": "topology",
+     "title": "Two areas joined by the level 2 backbone",
+     "caption": "Level 1 routers know only their own area and follow a default to the nearest attached L1/2 router, so R25 may exit through R21 even though the data centre sits behind R22, unless the DC prefixes are leaked into level 1.",
+     "nodes": [
+      {
+       "id": "R5",
+       "kind": "router",
+       "label": "R5",
+       "sub": "L1",
+       "x": 0,
+       "y": 3
+      },
+      {
+       "id": "R3",
+       "kind": "router",
+       "label": "R3",
+       "sub": "L1/2, attached bit set",
+       "x": 2,
+       "y": 3
+      },
+      {
+       "id": "R9",
+       "kind": "router",
+       "label": "R9",
+       "sub": "L2 core",
+       "x": 3.5,
+       "y": 1
+      },
+      {
+       "id": "R21",
+       "kind": "router",
+       "label": "R21",
+       "sub": "L1/2",
+       "x": 5,
+       "y": 3
+      },
+      {
+       "id": "R22",
+       "kind": "router",
+       "label": "R22",
+       "sub": "L1/2",
+       "x": 7,
+       "y": 3
+      },
+      {
+       "id": "R25",
+       "kind": "router",
+       "label": "R25",
+       "sub": "L1",
+       "x": 6,
+       "y": 5
+      },
+      {
+       "id": "DC",
+       "kind": "server",
+       "label": "Data centre",
+       "sub": "10.0.0.9/32 and more",
+       "x": 7,
+       "y": 1
+      }
+     ],
+     "links": [
+      {
+       "a": "R5",
+       "b": "R3",
+       "label": "L1"
+      },
+      {
+       "a": "R3",
+       "b": "R9",
+       "label": "L2"
+      },
+      {
+       "a": "R9",
+       "b": "R21",
+       "label": "L2"
+      },
+      {
+       "a": "R9",
+       "b": "R22",
+       "label": "L2"
+      },
+      {
+       "a": "R21",
+       "b": "R25",
+       "label": "L1"
+      },
+      {
+       "a": "R22",
+       "b": "R25",
+       "label": "L1"
+      },
+      {
+       "a": "R22",
+       "b": "DC"
+      }
+     ],
+     "zones": [
+      {
+       "label": "Area 49.0010",
+       "x": 0,
+       "y": 3,
+       "w": 3,
+       "h": 1
+      },
+      {
+       "label": "Area 49.0020",
+       "x": 5,
+       "y": 3,
+       "w": 3,
+       "h": 3
+      }
+     ]
+    },
+    {
      "type": "table",
      "title": "TLVs you should recognise",
      "head": [
@@ -4025,6 +5114,11 @@ TRACK.modules.push({
        "232 / 236",
        "IPv6 interface address / IPv6 reachability",
        "IPv6 support in a single topology"
+      ],
+      [
+       "27",
+       "SRv6 locator",
+       "Advertises SRv6 locators and their End SIDs for segment routing over IPv6"
       ],
       [
        "242",
@@ -4206,6 +5300,16 @@ TRACK.modules.push({
      "prompt": "Where in your network would leaking a small set of level 2 prefixes into level 1 improve exit selection, and what would you tag them with?"
     },
     {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "IS-IS runs over layer 2 and grows by adding TLVs; use wide metrics everywhere.",
+      "Level 1 routers exit through the nearest attached router; leak selected level 2 prefixes to improve exit choice.",
+      "The up/down bit stops leaked prefixes returning to level 2.",
+      "Set the overload bit on startup so transit traffic waits until BGP and the FIB are ready."
+     ]
+    },
+    {
      "type": "quiz",
      "items": [
       {
@@ -4313,6 +5417,42 @@ TRACK.modules.push({
      ]
     },
     {
+     "type": "chart",
+     "title": "Where the time goes for one link failure (illustrative)",
+     "caption": "Illustrative numbers: BFD and short throttles shrink detection and computation, but installing thousands of prefixes still dominates, which is why fast reroute and prefix prioritisation matter.",
+     "kind": "bar",
+     "labels": [
+      "Detect",
+      "Originate",
+      "Flood",
+      "Compute",
+      "Install"
+     ],
+     "series": [
+      {
+       "name": "Untuned",
+       "values": [
+        900,
+        500,
+        40,
+        200,
+        800
+       ]
+      },
+      {
+       "name": "Tuned",
+       "values": [
+        150,
+        0,
+        40,
+        50,
+        300
+       ]
+      }
+     ],
+     "unit": " ms"
+    },
+    {
      "type": "formula",
      "title": "Convergence formulas",
      "items": [
@@ -4361,6 +5501,37 @@ TRACK.modules.push({
       "! enable per-prefix LFA, then remote LFA or TI-LFA where supported"
      ],
      "note": "SPF runs 50 ms after the first change, then waits 200 ms, 400 ms and so on up to 5 s while changes continue. The LSA arrival timer must be lower than the LSA hold value or neighbours discard legitimate rapid updates. Prioritising loopbacks makes BGP next hops converge before bulk prefixes."
+    },
+    {
+     "type": "chart",
+     "title": "SPF throttle 50/200/5000 ms during a burst of changes",
+     "caption": "Computed from the configuration above: the first SPF runs 50 ms after the first change, then the wait doubles from the 200 ms hold value while changes continue, capped at 5 s, and resets after a quiet period.",
+     "kind": "line",
+     "labels": [
+      "1st",
+      "2nd",
+      "3rd",
+      "4th",
+      "5th",
+      "6th",
+      "7th"
+     ],
+     "series": [
+      {
+       "name": "Wait before SPF",
+       "values": [
+        50,
+        200,
+        400,
+        800,
+        1600,
+        3200,
+        5000
+       ]
+      }
+     ],
+     "unit": " ms",
+     "yLabel": "Wait"
     },
     {
      "type": "cli",
@@ -4532,6 +5703,16 @@ TRACK.modules.push({
      "prompt": "Measure, or estimate, each convergence phase in a network you know. Which phase dominates, and which tool from this lesson attacks it?"
     },
     {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "Convergence is detect + propagate + compute + install; tune each phase separately and measure before and after.",
+      "BFD detection uses the slower side: remote multiplier × max(local required RX, remote desired TX).",
+      "Exponential throttles react quickly to the first event and back off under instability.",
+      "LFA coverage depends on topology; TI-LFA covers any redundant topology on the post-convergence path but needs segment routing."
+     ]
+    },
+    {
      "type": "quiz",
      "items": [
       {
@@ -4631,6 +5812,98 @@ TRACK.modules.push({
       {
        "label": "Persistence",
        "text": "If P's origin fails, the copies keep each other alive and traffic loops"
+      }
+     ]
+    },
+    {
+     "type": "topology",
+     "title": "Two redistribution points, one feedback path",
+     "caption": "R1 exports 10.20.5.0/24 into OSPF with tag 115. Without a deny-by-tag on R2 the copy re-enters IS-IS, and because OSPF's distance (110) beats IS-IS (115), R2 also prefers the detour through R1.",
+     "nodes": [
+      {
+       "id": "DC",
+       "kind": "server",
+       "label": "10.20.5.0/24",
+       "sub": "Native to IS-IS",
+       "x": 0,
+       "y": 2.5
+      },
+      {
+       "id": "R10",
+       "kind": "router",
+       "label": "R10",
+       "sub": "IS-IS core",
+       "x": 1,
+       "y": 2.5
+      },
+      {
+       "id": "R1",
+       "kind": "router",
+       "label": "R1",
+       "sub": "Redistributes both ways",
+       "x": 3,
+       "y": 1
+      },
+      {
+       "id": "R2",
+       "kind": "router",
+       "label": "R2",
+       "sub": "Redistributes both ways",
+       "x": 3,
+       "y": 4
+      },
+      {
+       "id": "R20",
+       "kind": "router",
+       "label": "R20",
+       "sub": "OSPF core",
+       "x": 5,
+       "y": 2.5
+      }
+     ],
+     "links": [
+      {
+       "a": "DC",
+       "b": "R10"
+      },
+      {
+       "a": "R10",
+       "b": "R1",
+       "label": "IS-IS"
+      },
+      {
+       "a": "R10",
+       "b": "R2",
+       "label": "IS-IS"
+      },
+      {
+       "a": "R1",
+       "b": "R20",
+       "label": "E2, tag 115",
+       "style": "bold"
+      },
+      {
+       "a": "R20",
+       "b": "R2",
+       "label": "OSPF",
+       "style": "bold"
+      }
+     ],
+     "zones": [
+      {
+       "label": "IS-IS domain",
+       "x": 0,
+       "y": 1,
+       "w": 2,
+       "h": 4
+      },
+      {
+       "label": "OSPF domain",
+       "x": 4,
+       "y": 1,
+       "w": 2,
+       "h": 4,
+       "tone": "accent"
       }
      ]
     },
@@ -4878,6 +6151,16 @@ TRACK.modules.push({
      "prompt": "Draw a network with three redistribution points between two domains. Which routers need tags, which need distance changes, and which failure combinations would you test?"
     },
     {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "Redistribution loses origin information; with two or more points, routes can return home and loop.",
+      "Tag routes by source domain and deny the other domain's tag at every redistribution point.",
+      "Tags stop feedback; administrative distance decides preference, so make native routes win.",
+      "Prove the design by withdrawing a test prefix and watching it clear from both domains."
+     ]
+    },
+    {
      "type": "quiz",
      "items": [
       {
@@ -5086,8 +6369,197 @@ TRACK.modules.push({
      "note": "Both reflectors (unique cluster IDs) reflect the same path through edge router 10.0.0.21. Edge router 10.0.0.22 also learns 203.0.113.0/24 from AS 64600, but neither reflector selected it, so PE5 never sees it. That is path hiding: no load sharing, no pre-computed backup, and slower convergence if 10.0.0.21 fails."
     },
     {
+     "type": "topology",
+     "title": "A redundant reflector pair hides an exit",
+     "caption": "Both reflectors select the path via E21 because it is closer to them in the IGP, so PE5 never learns the exit through E22. Add-path, best-external or optimal route reflection brings it back.",
+     "nodes": [
+      {
+       "id": "X",
+       "kind": "cloud",
+       "label": "AS 64600",
+       "sub": "203.0.113.0/24",
+       "x": 3.5,
+       "y": 0
+      },
+      {
+       "id": "E21",
+       "kind": "router",
+       "label": "E21",
+       "sub": "10.0.0.21",
+       "x": 1,
+       "y": 1
+      },
+      {
+       "id": "E22",
+       "kind": "router",
+       "label": "E22",
+       "sub": "10.0.0.22",
+       "x": 6,
+       "y": 1
+      },
+      {
+       "id": "RR1",
+       "kind": "router",
+       "label": "RR1",
+       "sub": "Cluster 10.0.0.100",
+       "x": 2,
+       "y": 3
+      },
+      {
+       "id": "RR2",
+       "kind": "router",
+       "label": "RR2",
+       "sub": "Cluster 10.0.0.200",
+       "x": 5,
+       "y": 3
+      },
+      {
+       "id": "PE5",
+       "kind": "router",
+       "label": "PE5",
+       "sub": "Client: sees E21 only",
+       "x": 3.5,
+       "y": 5
+      }
+     ],
+     "links": [
+      {
+       "a": "X",
+       "b": "E21",
+       "label": "eBGP"
+      },
+      {
+       "a": "X",
+       "b": "E22",
+       "label": "eBGP"
+      },
+      {
+       "a": "E21",
+       "b": "RR1",
+       "style": "dashed"
+      },
+      {
+       "a": "E21",
+       "b": "RR2",
+       "style": "dashed"
+      },
+      {
+       "a": "E22",
+       "b": "RR1",
+       "style": "dashed"
+      },
+      {
+       "a": "E22",
+       "b": "RR2",
+       "style": "dashed"
+      },
+      {
+       "a": "RR1",
+       "b": "RR2",
+       "label": "non-client"
+      },
+      {
+       "a": "RR1",
+       "b": "PE5"
+      },
+      {
+       "a": "RR2",
+       "b": "PE5"
+      }
+     ]
+    },
+    {
+     "type": "callout",
+     "kind": "pro",
+     "title": "Reflectors that choose for the client",
+     "text": "**Optimal route reflection** (RFC 9107) lets a reflector run best-path selection from the IGP position of each client or client group instead of its own, so centralised reflectors stop breaking hot-potato exits. Many large networks now run reflectors as virtual machines or containers outside the forwarding path; that is only safe when optimal route reflection or add-path compensates for their position."
+    },
+    {
      "type": "text",
      "text": "A **confederation** divides an AS into sub-ASes, usually with private AS numbers. Inside a sub-AS, normal iBGP rules apply (full mesh or reflectors). Between sub-ASes, sessions behave like eBGP for loop prevention, using AS_CONFED_SEQUENCE segments, but NEXT_HOP, LOCAL_PREF and MED are preserved as if the session were iBGP. Confederation segments are not counted in AS-path length during best-path selection and are removed when routes leave the confederation, so outsiders see a single AS."
+    },
+    {
+     "type": "topology",
+     "title": "A confederation from inside and outside",
+     "caption": "Inside AS 64500, sub-AS 65101 runs normal iBGP. Sessions between sub-ASes behave like eBGP for loop prevention but keep NEXT_HOP, LOCAL_PREF and MED, and the external peer sees only AS 64500.",
+     "nodes": [
+      {
+       "id": "EXT",
+       "kind": "router",
+       "label": "AS 64999 peer",
+       "sub": "Sees AS 64500 only",
+       "x": 1,
+       "y": 0
+      },
+      {
+       "id": "R31",
+       "kind": "router",
+       "label": "R31",
+       "sub": "Sub-AS 65101",
+       "x": 1,
+       "y": 2
+      },
+      {
+       "id": "R32",
+       "kind": "router",
+       "label": "R32",
+       "sub": "Sub-AS 65101",
+       "x": 1,
+       "y": 4
+      },
+      {
+       "id": "R41",
+       "kind": "router",
+       "label": "R41",
+       "sub": "Sub-AS 65102",
+       "x": 4,
+       "y": 2
+      },
+      {
+       "id": "R51",
+       "kind": "router",
+       "label": "R51",
+       "sub": "Sub-AS 65103",
+       "x": 4,
+       "y": 4
+      }
+     ],
+     "links": [
+      {
+       "a": "EXT",
+       "b": "R31",
+       "label": "eBGP"
+      },
+      {
+       "a": "R31",
+       "b": "R32",
+       "label": "iBGP"
+      },
+      {
+       "a": "R31",
+       "b": "R41",
+       "label": "confed eBGP"
+      },
+      {
+       "a": "R41",
+       "b": "R51",
+       "label": "confed eBGP"
+      },
+      {
+       "a": "R32",
+       "b": "R51",
+       "label": "confed eBGP"
+      }
+     ],
+     "zones": [
+      {
+       "label": "Confederation AS 64500",
+       "x": 1,
+       "y": 2,
+       "w": 4,
+       "h": 3
+      }
+     ]
     },
     {
      "type": "cli",
@@ -5190,6 +6662,16 @@ TRACK.modules.push({
     {
      "type": "reflection",
      "prompt": "In an iBGP design you know, which exits are hidden from which routers today? What would you change first to expose them?"
+    },
+    {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "Reflectors pass on only their own best path, chosen from their own IGP position.",
+      "ORIGINATOR_ID and CLUSTER_LIST stop reflection loops; a shared cluster ID makes dual peering to both reflectors essential.",
+      "Restore path diversity with add-path, best-external, regional reflectors or optimal route reflection.",
+      "Confederation segments are ignored in AS-path length and stripped at the edge, so outsiders see one AS."
+     ]
     },
     {
      "type": "quiz",
@@ -5382,10 +6864,140 @@ TRACK.modules.push({
      ]
     },
     {
+     "type": "tree",
+     "title": "The AS 64500 large-community plan",
+     "caption": "The middle field names a function, so policies match function and value instead of raw prefixes. Classification functions are set only by your ingress policy; action functions may be set by customers.",
+     "root": {
+      "label": "64500 : function : value",
+      "children": [
+       {
+        "label": "1 : relationship",
+        "children": [
+         {
+          "label": "100 customer"
+         },
+         {
+          "label": "200 peer"
+         },
+         {
+          "label": "300 transit"
+         }
+        ]
+       },
+       {
+        "label": "2 : region of entry",
+        "children": [
+         {
+          "label": "44 = region 44"
+         }
+        ]
+       },
+       {
+        "label": "10 : do not announce",
+        "children": [
+         {
+          "label": "64511 = not to AS 64511"
+         }
+        ]
+       },
+       {
+        "label": "11 : prepend to peers",
+        "children": [
+         {
+          "label": "2 = prepend twice"
+         }
+        ]
+       }
+      ]
+     }
+    },
+    {
      "type": "callout",
      "kind": "insight",
      "text": "The rule that peer and transit routes are exported only to customers is the valley-free model in practice. If every route is classified at ingress and every export policy matches on class, a misconfigured neighbour cannot turn your network into a transit path between two providers.",
      "title": "Export by class is route-leak prevention"
+    },
+    {
+     "type": "topology",
+     "title": "Valley-free export by class",
+     "caption": "Routes learned from transits and peers go only to customers; customer routes go to everyone. Classified at ingress and exported by class, no route can turn your network into a free path between two providers.",
+     "nodes": [
+      {
+       "id": "TA",
+       "kind": "internet",
+       "label": "Transit A",
+       "sub": "Upstream",
+       "x": 1,
+       "y": 0
+      },
+      {
+       "id": "TB",
+       "kind": "internet",
+       "label": "Transit B",
+       "sub": "Upstream",
+       "x": 6,
+       "y": 0
+      },
+      {
+       "id": "PE",
+       "kind": "router",
+       "label": "Peer AS 64511",
+       "sub": "Settlement-free",
+       "x": 0,
+       "y": 3
+      },
+      {
+       "id": "YOU",
+       "kind": "router",
+       "label": "AS 64500",
+       "sub": "Your edge",
+       "x": 3.5,
+       "y": 2
+      },
+      {
+       "id": "C1",
+       "kind": "router",
+       "label": "Customer AS 64496",
+       "x": 2,
+       "y": 5
+      },
+      {
+       "id": "C2",
+       "kind": "router",
+       "label": "Customer AS 64497",
+       "x": 5,
+       "y": 5
+      }
+     ],
+     "links": [
+      {
+       "a": "YOU",
+       "b": "TA",
+       "label": "customers only"
+      },
+      {
+       "a": "YOU",
+       "b": "TB",
+       "label": "customers only"
+      },
+      {
+       "a": "YOU",
+       "b": "PE",
+       "label": "customers only"
+      },
+      {
+       "a": "YOU",
+       "b": "C1",
+       "label": "everything",
+       "style": "bold"
+      },
+      {
+       "a": "YOU",
+       "b": "C2",
+       "label": "everything",
+       "style": "bold"
+      }
+     ]
     },
     {
      "type": "cli",
@@ -5566,6 +7178,16 @@ TRACK.modules.push({
     {
      "type": "reflection",
      "prompt": "If you had to describe your organisation's routing policy in ten communities, what would they be? Which current per-neighbour rules would they replace?"
+    },
+    {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "Classify once at ingress with communities, then make every later decision by matching them.",
+      "Use large communities when your ASN is 32-bit or when you need function:value structure.",
+      "Sanitise your own namespace at ingress, export by class and scrub internal tags at egress.",
+      "Make community sending part of every session template and verify it per session."
+     ]
     },
     {
      "type": "quiz",
@@ -5770,6 +7392,89 @@ TRACK.modules.push({
      "note": "In parentheses is the IGP metric to the next hop; after Origin IGP is the MED. With deterministic MED, the two AS 64510 paths are grouped and the MED 0 path via 10.0.0.9 wins the group. It is then compared with the AS 64520 path: different neighbouring AS, so MED is skipped and the IGP metric decides (40 beats 50). Without deterministic MED, comparing pairwise in the listed order would pick 10.0.0.9 instead."
     },
     {
+     "type": "topology",
+     "title": "Three paths, two neighbouring ASes",
+     "caption": "Deterministic MED groups R7 and R9 (both AS 64510), where MED 0 wins. Against the AS 64520 path MED is skipped, so the IGP metric to the next hop decides and R8 wins with 40.",
+     "nodes": [
+      {
+       "id": "A1",
+       "kind": "cloud",
+       "label": "AS 64510",
+       "x": 2,
+       "y": 0
+      },
+      {
+       "id": "A2",
+       "kind": "cloud",
+       "label": "AS 64520",
+       "x": 5,
+       "y": 0
+      },
+      {
+       "id": "R7",
+       "kind": "router",
+       "label": "R7",
+       "sub": "MED 50",
+       "x": 1,
+       "y": 2
+      },
+      {
+       "id": "R8",
+       "kind": "router",
+       "label": "R8",
+       "sub": "MED 10",
+       "x": 4,
+       "y": 2
+      },
+      {
+       "id": "R9",
+       "kind": "router",
+       "label": "R9",
+       "sub": "MED 0",
+       "x": 6,
+       "y": 2
+      },
+      {
+       "id": "R5",
+       "kind": "router",
+       "label": "R5",
+       "sub": "Deterministic MED on",
+       "x": 3.5,
+       "y": 4
+      }
+     ],
+     "links": [
+      {
+       "a": "A1",
+       "b": "R7"
+      },
+      {
+       "a": "A1",
+       "b": "R9"
+      },
+      {
+       "a": "A2",
+       "b": "R8"
+      },
+      {
+       "a": "R5",
+       "b": "R7",
+       "label": "IGP 20"
+      },
+      {
+       "a": "R5",
+       "b": "R8",
+       "label": "IGP 40",
+       "style": "bold"
+      },
+      {
+       "a": "R5",
+       "b": "R9",
+       "label": "IGP 50"
+      }
+     ]
+    },
+    {
      "type": "compare",
      "title": "Handling a missing MED",
      "columns": [
@@ -5902,6 +7607,16 @@ TRACK.modules.push({
      "prompt": "Pick a prefix with several paths in a BGP table you can access. Walk the decision sequence and write down the step that decided it. Did it match what you expected?"
     },
     {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "Walk the decision sequence in order and stop at the first attribute that differs.",
+      "MED is compared only between paths from the same neighbouring AS unless always-compare is set; deterministic MED removes order dependence.",
+      "A missing MED counts as best by default; decide explicitly whether to treat it as worst.",
+      "Your MED and prepends act after the neighbour's LOCAL_PREF; use its documented communities to influence the earlier step."
+     ]
+    },
+    {
      "type": "quiz",
      "items": [
       {
@@ -6028,6 +7743,66 @@ TRACK.modules.push({
      "note": "The reflector selects the two best paths and sends both to clients that negotiate the capability. On the client, installing the additional path places a pre-computed backup in the forwarding table so a failed exit can be bypassed without waiting for best-path recalculation."
     },
     {
+     "type": "sequence",
+     "title": "Add-path turns a hidden exit into a ready backup",
+     "caption": "PE5 switches in the forwarding plane as soon as the IGP removes E21's loopback; the BGP withdrawal arrives later and changes nothing urgent.",
+     "actors": [
+      "PE5",
+      "RR1",
+      "E21",
+      "E22"
+     ],
+     "steps": [
+      {
+       "from": 2,
+       "to": 1,
+       "label": "UPDATE 203.0.113.0/24, NH E21"
+      },
+      {
+       "from": 3,
+       "to": 1,
+       "label": "UPDATE 203.0.113.0/24, NH E22"
+      },
+      {
+       "from": 1,
+       "to": 0,
+       "label": "UPDATE path-id 1, NH E21"
+      },
+      {
+       "from": 1,
+       "to": 0,
+       "label": "UPDATE path-id 2, NH E22"
+      },
+      {
+       "from": 0,
+       "to": 0,
+       "label": "Best via E21, backup via E22 in FIB"
+      },
+      {
+       "from": 2,
+       "to": 2,
+       "label": "E21 fails"
+      },
+      {
+       "from": 0,
+       "to": 0,
+       "label": "IGP loses E21: next-hop tracking fires"
+      },
+      {
+       "from": 0,
+       "to": 0,
+       "label": "FIB switches to path 2 at once"
+      },
+      {
+       "from": 1,
+       "to": 0,
+       "label": "WITHDRAW path-id 1",
+       "reply": true,
+       "note": "Arrives after the switch"
+      }
+     ]
+    },
+    {
      "type": "compare",
      "title": "Path diversity options",
      "columns": [
@@ -6108,6 +7883,40 @@ TRACK.modules.push({
        "meaning": "Prefix-independent convergence: the switch time does not grow with table size."
       }
      ]
+    },
+    {
+     "type": "chart",
+     "title": "Restoration time versus table size (illustrative)",
+     "caption": "Illustrative values: with per-prefix updates the outage grows with the number of prefixes behind the failed exit; with shared path lists and a pre-installed backup one pointer change restores them all.",
+     "kind": "line",
+     "labels": [
+      "100k",
+      "250k",
+      "500k",
+      "1M"
+     ],
+     "series": [
+      {
+       "name": "Per-prefix FIB updates",
+       "values": [
+        2,
+        5,
+        10,
+        20
+       ]
+      },
+      {
+       "name": "Shared path lists (PIC)",
+       "values": [
+        0.05,
+        0.05,
+        0.05,
+        0.05
+       ]
+      }
+     ],
+     "unit": " s",
+     "yLabel": "Seconds to restore"
     },
     {
      "type": "cli",
@@ -6217,6 +8026,16 @@ TRACK.modules.push({
      "prompt": "For an exit failure in your network, estimate each phase of BGP convergence today. Which single change would shorten it the most?"
     },
     {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "Conditional advertisement needs a condition route that only the primary path provides, and it reacts on a scan interval.",
+      "Add-path is negotiated per session and exposes several paths; best-external is the lighter alternative.",
+      "Fast BGP convergence comes from outside BGP: BFD, next-hop tracking and pre-installed backup paths.",
+      "Set BFD detection slower than the transport's own protection, and check how BFD interacts with graceful restart."
+     ]
+    },
+    {
      "type": "quiz",
      "items": [
       {
@@ -6286,7 +8105,8 @@ TRACK.modules.push({
    "objectives": [
     "Apply session protections: prefix limits, TTL security and authentication",
     "Deploy RPKI route origin validation safely and interpret validation states",
-    "Diagnose complex BGP failures such as MTU-related flaps and route leaks"
+    "Diagnose complex BGP failures such as MTU-related flaps and route leaks",
+    "Explain DDoS signalling with RTBH and Flowspec, and where ASPA fits in route-leak defence"
    ],
    "blocks": [
     {
@@ -6338,32 +8158,118 @@ TRACK.modules.push({
        "Route leaks between relationships",
        "Roles negotiated in OPEN; Only-to-Customer attribute marks routes",
        "Both sides must support it"
+      ],
+      [
+       "DDoS signalling: RTBH and Flowspec",
+       "Volumetric attacks toward a customer",
+       "BLACKHOLE community (RFC 7999) drops all traffic to a target; Flowspec (RFC 8955, RFC 8956 for IPv6) distributes match-and-action filters in BGP",
+       "Accept them only from authorised sources; Flowspec rules consume hardware filter space"
+      ],
+      [
+       "ASPA (in standardisation)",
+       "Route leaks and forged paths that origin validation cannot see",
+       "RPKI objects in which an AS lists its authorised providers; routers check that the AS path is valley-free",
+       "Check the current IETF status and validator and router support before relying on it"
       ]
      ]
     },
     {
-     "type": "flow",
-     "title": "Route origin validation pipeline",
+     "type": "timeline",
+     "title": "Routing security milestones",
+     "caption": "Session security and origin validation are mature; path and leak protection are still arriving, so check current status before you depend on the newest items.",
      "items": [
       {
-       "label": "Publish",
-       "text": "Resource holders sign ROAs: prefix, maximum length, origin AS"
+       "when": "2010",
+       "label": "TCP-AO (RFC 5925)",
+       "text": "Successor to the TCP MD5 option for session authentication"
       },
       {
-       "label": "Validate",
-       "text": "Relying-party software fetches and validates the RPKI repositories"
+       "when": "2012",
+       "label": "RPKI architecture (RFC 6480)"
       },
       {
-       "label": "Distribute",
-       "text": "Validated payloads are sent to routers over the RPKI-to-router protocol"
+       "when": "2013",
+       "label": "Origin validation (RFC 6811)",
+       "text": "Valid, Invalid and NotFound states"
       },
       {
-       "label": "Classify",
-       "text": "Each route is marked Valid, Invalid or NotFound"
+       "when": "2017",
+       "label": "RPKI-to-router v1 and BGPsec",
+       "text": "RFC 8210; BGPsec (RFC 8205) signs paths but sees little deployment"
       },
       {
-       "label": "Act",
-       "text": "Policy drops Invalid and may prefer Valid"
+       "when": "2020",
+       "label": "Flowspec revised (RFC 8955)",
+       "text": "Filtering rules carried in BGP"
+      },
+      {
+       "when": "2022",
+       "label": "Roles and OTC (RFC 9234); maxLength guidance (RFC 9319)"
+      },
+      {
+       "when": "2024–26",
+       "label": "ASPA progressing in the IETF",
+       "text": "Leak and path-plausibility checks; verify the current status"
+      }
+     ]
+    },
+    {
+     "type": "sequence",
+     "title": "Route origin validation from ROA to router",
+     "caption": "The router never talks to the repositories: a validator does the cryptography and feeds simple prefix, maxLength and AS records over the RPKI-to-router protocol, then sends only changes.",
+     "actors": [
+      "Edge router",
+      "Validator (RP)",
+      "RPKI repositories",
+      "Resource holder"
+     ],
+     "steps": [
+      {
+       "from": 3,
+       "to": 2,
+       "label": "Publish signed ROA: prefix, maxLength, AS"
+      },
+      {
+       "from": 1,
+       "to": 2,
+       "label": "Fetch objects (RRDP or rsync)"
+      },
+      {
+       "from": 2,
+       "to": 1,
+       "label": "Certificates, manifests, CRLs, ROAs",
+       "reply": true
+      },
+      {
+       "from": 1,
+       "to": 1,
+       "label": "Validate chains, build payloads"
+      },
+      {
+       "from": 0,
+       "to": 1,
+       "label": "RTR Reset Query"
+      },
+      {
+       "from": 1,
+       "to": 0,
+       "label": "Cache Response: prefix, maxLength, AS",
+       "reply": true
+      },
+      {
+       "from": 0,
+       "to": 0,
+       "label": "Mark routes Valid, Invalid or NotFound"
+      },
+      {
+       "from": 1,
+       "to": 0,
+       "label": "Serial Notify when data changes"
+      },
+      {
+       "from": 0,
+       "to": 1,
+       "label": "Serial Query: fetch only changes"
       }
      ]
     },
@@ -6387,6 +8293,12 @@ TRACK.modules.push({
        "meaning": "Wrong origin, or too specific for the authorised maximum length."
       }
      ]
+    },
+    {
+     "type": "callout",
+     "kind": "warning",
+     "title": "Keep maxLength tight",
+     "text": "Current best practice (RFC 9319) is to avoid maxLength values longer than the prefixes you actually announce. A ROA for a /22 with maxLength 24 also authorises /24s you never announce, so an attacker who forges your origin AS can announce one, win by longest match and still be marked Valid. Publish one ROA entry per announced prefix instead."
     },
     {
      "type": "cli",
@@ -6605,12 +8517,30 @@ TRACK.modules.push({
       {
        "term": "Path MTU blackhole",
        "def": "Silent loss of full-size packets on a path whose MTU is smaller than expected, with no usable feedback."
+      },
+      {
+       "term": "ASPA",
+       "def": "Autonomous System Provider Authorisation: signed RPKI objects listing an AS's upstream providers, so routers can detect AS paths that violate valley-free routing. Still maturing; check current standard and product status."
+      },
+      {
+       "term": "Flowspec",
+       "def": "A BGP address family that distributes traffic-filtering rules (match on addresses, ports, protocol; actions such as drop, rate-limit or redirect), commonly used for DDoS mitigation."
       }
      ]
     },
     {
      "type": "reflection",
      "prompt": "Which of the layered BGP protections are missing on the external sessions you know? Rank the gaps by the damage a single misconfigured neighbour could cause today."
+    },
+    {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "Layer the defences: session protection, prefix limits, registry-based filters, origin validation and leak prevention.",
+      "Drop RPKI Invalid routes by explicit policy and keep ROA maxLength equal to what you announce.",
+      "Origin validation does not check the path; roles, Only-to-Customer and ASPA address route leaks.",
+      "Sessions that die after the initial transfer with many retransmissions point to a path MTU problem."
+     ]
     },
     {
      "type": "quiz",

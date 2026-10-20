@@ -63,6 +63,45 @@ TRACK.modules.push({
      ]
     },
     {
+     "type": "packet",
+     "title": "Two label stack entries on the wire",
+     "caption": "Each entry is exactly 32 bits: a 20-bit label, 3-bit traffic class, the bottom-of-stack bit and an 8-bit TTL. Only the innermost (service) entry has S set.",
+     "fields": [
+      {
+       "label": "Transport label",
+       "bits": 20
+      },
+      {
+       "label": "TC",
+       "bits": 3
+      },
+      {
+       "label": "S=0",
+       "bits": 1
+      },
+      {
+       "label": "TTL",
+       "bits": 8
+      },
+      {
+       "label": "Service label",
+       "bits": 20
+      },
+      {
+       "label": "TC",
+       "bits": 3
+      },
+      {
+       "label": "S=1",
+       "bits": 1
+      },
+      {
+       "label": "TTL",
+       "bits": 8
+      }
+     ]
+    },
+    {
      "type": "table",
      "title": "The 32-bit label stack entry and the reserved labels you must recognise",
      "head": [
@@ -135,6 +174,91 @@ TRACK.modules.push({
      ]
     },
     {
+     "type": "topology",
+     "title": "Label operations along one LSP",
+     "caption": "PE1 pushes P1's label for PE2's loopback over the service label; P1 swaps 24017 to 24033; P2 pops because PE2 advertised implicit null; PE2 sees only 24120 and maps it to the VRF.",
+     "nodes": [
+      {
+       "id": "CE1",
+       "kind": "router",
+       "label": "CE1",
+       "sub": "Customer site A",
+       "x": 0,
+       "y": 3.5
+      },
+      {
+       "id": "PE1",
+       "kind": "router",
+       "label": "PE1",
+       "sub": "Push 24017 + 24120",
+       "x": 1,
+       "y": 2
+      },
+      {
+       "id": "P1",
+       "kind": "router",
+       "label": "P1",
+       "sub": "Swap 24017 → 24033",
+       "x": 3,
+       "y": 2
+      },
+      {
+       "id": "P2",
+       "kind": "router",
+       "label": "P2",
+       "sub": "Pop (PHP)",
+       "x": 5,
+       "y": 2
+      },
+      {
+       "id": "PE2",
+       "kind": "router",
+       "label": "PE2",
+       "sub": "10.255.0.9, VRF lookup",
+       "x": 7,
+       "y": 2
+      },
+      {
+       "id": "CE2",
+       "kind": "router",
+       "label": "CE2",
+       "sub": "Customer site B",
+       "x": 7,
+       "y": 3.5
+      }
+     ],
+     "links": [
+      {
+       "a": "CE1",
+       "b": "PE1",
+       "label": "IP"
+      },
+      {
+       "a": "PE1",
+       "b": "P1",
+       "label": "24017 | 24120",
+       "style": "bold"
+      },
+      {
+       "a": "P1",
+       "b": "P2",
+       "label": "24033 | 24120",
+       "style": "bold"
+      },
+      {
+       "a": "P2",
+       "b": "PE2",
+       "label": "24120 only",
+       "style": "bold"
+      },
+      {
+       "a": "PE2",
+       "b": "CE2",
+       "label": "IP"
+      }
+     ]
+    },
+    {
      "type": "compare",
      "title": "Three tables, three jobs",
      "columns": [
@@ -187,6 +311,71 @@ TRACK.modules.push({
       {
        "title": "Address and label exchange",
        "text": "Peers exchange their interface addresses, then label mappings for each FEC, typically every IGP prefix or only host routes if filtered."
+      }
+     ]
+    },
+    {
+     "type": "sequence",
+     "title": "LDP from hello to label mapping",
+     "caption": "Discovery is UDP, the session is TCP 646 opened by the higher transport address, and only after initialisation and address exchange do label mappings flow; the egress advertises implicit null for its own loopback.",
+     "actors": [
+      "P1 (10.255.0.1)",
+      "P4 (10.255.0.4)"
+     ],
+     "steps": [
+      {
+       "from": 0,
+       "to": 1,
+       "label": "Hello, UDP 646 to 224.0.0.2"
+      },
+      {
+       "from": 1,
+       "to": 0,
+       "label": "Hello, transport address 10.255.0.4"
+      },
+      {
+       "from": 1,
+       "to": 0,
+       "label": "TCP SYN to port 646",
+       "note": "Higher transport address is active"
+      },
+      {
+       "from": 0,
+       "to": 1,
+       "label": "SYN-ACK",
+       "reply": true
+      },
+      {
+       "from": 1,
+       "to": 0,
+       "label": "Initialization: timers, mode"
+      },
+      {
+       "from": 0,
+       "to": 1,
+       "label": "Initialization and Keepalive",
+       "reply": true
+      },
+      {
+       "from": 1,
+       "to": 0,
+       "label": "Address: interface addresses"
+      },
+      {
+       "from": 0,
+       "to": 1,
+       "label": "Address",
+       "reply": true
+      },
+      {
+       "from": 1,
+       "to": 0,
+       "label": "Mapping 10.255.0.4/32: implicit null"
+      },
+      {
+       "from": 0,
+       "to": 1,
+       "label": "Mapping 10.255.0.9/32: 24017"
       }
      ]
     },
@@ -362,6 +551,16 @@ TRACK.modules.push({
      ]
     },
     {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "Labels decouple services from the core: P routers need only reachability to PE loopbacks.",
+      "Each label entry is 32 bits; every label adds 4 bytes, so size core MTU for the deepest stack you will push.",
+      "LDP binds labels to exact routing-table prefixes; keep PE loopbacks as /32 routes end to end.",
+      "Harden LDP with IGP synchronisation, session protection, label filtering and authentication."
+     ]
+    },
+    {
      "type": "quiz",
      "items": [
       {
@@ -480,6 +679,130 @@ TRACK.modules.push({
      ]
     },
     {
+     "type": "topology",
+     "title": "One L3VPN across a shared core",
+     "caption": "Two customers use the same 172.16.10.0/24 without conflict: RDs keep the VPN routes distinct in BGP, route targets decide which VRF imports them, and P routers carry only labels toward PE loopbacks.",
+     "nodes": [
+      {
+       "id": "CA",
+       "kind": "router",
+       "label": "BLUE site A",
+       "sub": "AS 65010",
+       "x": 0,
+       "y": 1
+      },
+      {
+       "id": "RA",
+       "kind": "router",
+       "label": "RED site A",
+       "sub": "Also 172.16.10.0/24",
+       "x": 0,
+       "y": 3
+      },
+      {
+       "id": "PE1",
+       "kind": "router",
+       "label": "PE1",
+       "sub": "10.255.0.1",
+       "x": 2,
+       "y": 2
+      },
+      {
+       "id": "P",
+       "kind": "router",
+       "label": "P",
+       "sub": "No customer routes",
+       "x": 3.5,
+       "y": 2
+      },
+      {
+       "id": "RR",
+       "kind": "router",
+       "label": "RR",
+       "sub": "10.255.0.100, no VRFs",
+       "x": 3.5,
+       "y": 0
+      },
+      {
+       "id": "PE3",
+       "kind": "router",
+       "label": "PE3",
+       "sub": "10.255.0.3",
+       "x": 5,
+       "y": 2
+      },
+      {
+       "id": "CB",
+       "kind": "router",
+       "label": "BLUE site B",
+       "sub": "AS 65010",
+       "x": 7,
+       "y": 1
+      },
+      {
+       "id": "RB",
+       "kind": "router",
+       "label": "RED site B",
+       "x": 7,
+       "y": 3
+      }
+     ],
+     "links": [
+      {
+       "a": "CA",
+       "b": "PE1",
+       "label": "eBGP"
+      },
+      {
+       "a": "RA",
+       "b": "PE1"
+      },
+      {
+       "a": "PE1",
+       "b": "P",
+       "label": "LSP",
+       "style": "bold"
+      },
+      {
+       "a": "P",
+       "b": "PE3",
+       "label": "LSP",
+       "style": "bold"
+      },
+      {
+       "a": "PE1",
+       "b": "RR",
+       "label": "VPNv4",
+       "style": "dashed"
+      },
+      {
+       "a": "PE3",
+       "b": "RR",
+       "label": "VPNv4",
+       "style": "dashed"
+      },
+      {
+       "a": "PE3",
+       "b": "CB",
+       "label": "eBGP"
+      },
+      {
+       "a": "PE3",
+       "b": "RB"
+      }
+     ],
+     "zones": [
+      {
+       "label": "Provider AS 65000",
+       "x": 2,
+       "y": 0,
+       "w": 4,
+       "h": 3,
+       "tone": "accent"
+      }
+     ]
+    },
+    {
      "type": "compare",
      "title": "Route distinguisher versus route target",
      "columns": [
@@ -535,28 +858,53 @@ TRACK.modules.push({
      ]
     },
     {
-     "type": "flow",
+     "type": "sequence",
      "title": "Control plane: from CE route to remote VRF",
-     "items": [
+     "caption": "The RD and service label are added at export, the reflector passes the route on without any VRF, and only the route target decides import at PE3.",
+     "actors": [
+      "CE1 (AS 65010)",
+      "PE1",
+      "RR 10.255.0.100",
+      "PE3",
+      "CE2 (AS 65010)"
+     ],
+     "steps": [
       {
-       "label": "CE advertises",
-       "text": "PE learns 172.16.10.0/24 in VRF BLUE via eBGP, OSPF or static"
+       "from": 0,
+       "to": 1,
+       "label": "eBGP: 172.16.10.0/24"
       },
       {
-       "label": "Export",
-       "text": "PE prepends RD 65000:101, attaches RT 65000:100 and allocates a service label"
+       "from": 1,
+       "to": 1,
+       "label": "Into VRF BLUE, RD 65000:101"
       },
       {
-       "label": "MP-BGP",
-       "text": "VPNv4 update to the route reflectors with next hop = PE loopback"
+       "from": 1,
+       "to": 2,
+       "label": "VPNv4 update",
+       "note": "RT 65000:100, label 24120"
       },
       {
-       "label": "Import",
-       "text": "Remote PE compares RTs with each VRF's import list and copies matches"
+       "from": 2,
+       "to": 3,
+       "label": "Reflected update",
+       "note": "Originator PE1, cluster list"
       },
       {
-       "label": "Install",
-       "text": "VRF route installed with recursive next hop: transport label + service label"
+       "from": 3,
+       "to": 3,
+       "label": "RT match: import to BLUE"
+      },
+      {
+       "from": 3,
+       "to": 3,
+       "label": "Install with 2-label stack"
+      },
+      {
+       "from": 3,
+       "to": 4,
+       "label": "eBGP update, as-override"
       }
      ]
     },
@@ -714,6 +1062,16 @@ TRACK.modules.push({
       "Remote next hop resolves to a /32 with a transport label in the FIB",
       "End-to-end LSP ping or trace succeeds between the PE loopbacks",
       "Ping from the VRF with large DF-set packets proves MTU across the core"
+     ]
+    },
+    {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "VRF isolates, RD makes prefixes unique, RT decides import, MP-BGP carries routes and labels, the LSP delivers packets.",
+      "Only route targets control import; route distinguishers never do.",
+      "A unique RD per PE keeps both paths of a dual-homed site visible for fast failover.",
+      "If BGP delivered the route but the FIB lacks the outer label, the fault is in the transport, not in BGP."
      ]
     },
     {
@@ -954,6 +1312,114 @@ TRACK.modules.push({
      ]
     },
     {
+     "type": "topology",
+     "title": "Inter-AS option B: labels swapped at each ASBR",
+     "caption": "Each ASBR keeps every VPN route without a VRF, sets next hop self and allocates a new label (L1 → L2 → L3), so the inter-AS link carries labelled packets without LDP.",
+     "nodes": [
+      {
+       "id": "PE1",
+       "kind": "router",
+       "label": "PE1",
+       "sub": "Exports with L1",
+       "x": 0,
+       "y": 2
+      },
+      {
+       "id": "RR1",
+       "kind": "router",
+       "label": "RR1",
+       "x": 1.5,
+       "y": 0
+      },
+      {
+       "id": "A1",
+       "kind": "router",
+       "label": "ASBR1",
+       "sub": "Allocates L2",
+       "x": 3,
+       "y": 2
+      },
+      {
+       "id": "A2",
+       "kind": "router",
+       "label": "ASBR2",
+       "sub": "Allocates L3",
+       "x": 4.5,
+       "y": 2
+      },
+      {
+       "id": "RR2",
+       "kind": "router",
+       "label": "RR2",
+       "x": 6,
+       "y": 0
+      },
+      {
+       "id": "PE2",
+       "kind": "router",
+       "label": "PE2",
+       "sub": "Pushes L3 + transport",
+       "x": 7,
+       "y": 2
+      }
+     ],
+     "links": [
+      {
+       "a": "PE1",
+       "b": "A1",
+       "label": "LSP"
+      },
+      {
+       "a": "A1",
+       "b": "A2",
+       "label": "eBGP VPNv4",
+       "style": "bold"
+      },
+      {
+       "a": "A2",
+       "b": "PE2",
+       "label": "LSP"
+      },
+      {
+       "a": "PE1",
+       "b": "RR1",
+       "style": "dashed"
+      },
+      {
+       "a": "RR1",
+       "b": "A1",
+       "style": "dashed"
+      },
+      {
+       "a": "A2",
+       "b": "RR2",
+       "style": "dashed"
+      },
+      {
+       "a": "RR2",
+       "b": "PE2",
+       "style": "dashed"
+      }
+     ],
+     "zones": [
+      {
+       "label": "AS 65000",
+       "x": 0,
+       "y": 0,
+       "w": 4,
+       "h": 3
+      },
+      {
+       "label": "AS 65100",
+       "x": 4.5,
+       "y": 0,
+       "w": 3.5,
+       "h": 3,
+       "tone": "accent"
+      }
+     ]
+    },
+    {
      "type": "cli",
      "title": "Option B ASBR in AS 65000",
      "device": "ASBR1 · IOS-style CLI",
@@ -1072,6 +1538,16 @@ TRACK.modules.push({
        "term": "Carrier supporting carrier",
        "def": "A service in which one provider carries another provider's labelled traffic inside a VRF."
       }
+     ]
+    },
+    {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "RT constraint lets reflectors send each PE only the VPN routes it imports.",
+      "Hub-and-spoke, extranet and management VPNs are built from route-target policy alone.",
+      "Option A trades scale for isolation, option B puts every VPN route on the ASBRs, option C needs high trust.",
+      "Seamless MPLS carries loopbacks in BGP labelled unicast so each IGP domain stays small."
      ]
     },
     {
@@ -1297,6 +1773,87 @@ TRACK.modules.push({
      "title": "Why TI-LFA changed the fast-reroute conversation"
     },
     {
+     "type": "topology",
+     "title": "TI-LFA repair for 10.255.0.4",
+     "caption": "If P2 fails (node protection), the post-convergence path is P3 → P6 → P4, but P6's current shortest path to P4 still runs through P2 (10 + 10 beats the metric-100 link). The repair stack is P6's node SID 16006, P6's adjacency SID 24001 toward P4, then 16004.",
+     "nodes": [
+      {
+       "id": "PE1",
+       "kind": "router",
+       "label": "PE1",
+       "sub": "Headend",
+       "x": 0,
+       "y": 2
+      },
+      {
+       "id": "P2",
+       "kind": "router",
+       "label": "P2",
+       "sub": "Primary next hop",
+       "x": 2,
+       "y": 1
+      },
+      {
+       "id": "P3",
+       "kind": "router",
+       "label": "P3",
+       "sub": "Backup next hop",
+       "x": 2,
+       "y": 3
+      },
+      {
+       "id": "P6",
+       "kind": "router",
+       "label": "P6",
+       "sub": "Node SID 16006",
+       "x": 4,
+       "y": 3
+      },
+      {
+       "id": "P4",
+       "kind": "router",
+       "label": "P4",
+       "sub": "10.255.0.4, SID 16004",
+       "x": 5,
+       "y": 1
+      }
+     ],
+     "links": [
+      {
+       "a": "PE1",
+       "b": "P2",
+       "label": "primary",
+       "style": "bold"
+      },
+      {
+       "a": "PE1",
+       "b": "P3",
+       "label": "backup"
+      },
+      {
+       "a": "P2",
+       "b": "P4",
+       "label": "metric 10"
+      },
+      {
+       "a": "P2",
+       "b": "P6",
+       "label": "metric 10"
+      },
+      {
+       "a": "P3",
+       "b": "P6",
+       "label": "metric 10"
+      },
+      {
+       "a": "P6",
+       "b": "P4",
+       "label": "metric 100: Adj-SID 24001",
+       "style": "tunnel"
+      }
+     ]
+    },
+    {
      "type": "steps",
      "title": "Migrating an LDP core to SR-MPLS",
      "items": [
@@ -1342,6 +1899,11 @@ TRACK.modules.push({
        "Adjacency segment for TE and TI-LFA"
       ],
       [
+       "uN / uA (micro-SID flavours)",
+       "Shift the next 16-bit micro-SID into place and forward, optionally over a given adjacency",
+       "Compressed node and adjacency segments in a micro-SID carrier"
+      ],
+      [
        "End.DT4 / End.DT6 / End.DT46",
        "Decapsulate and look up the inner packet in a given VRF table",
        "L3VPN service SID, typically per VRF"
@@ -1364,36 +1926,74 @@ TRACK.modules.push({
      ]
     },
     {
-     "type": "layers",
-     "title": "Anatomy of an SRv6 SID",
-     "items": [
+     "type": "packet",
+     "title": "The segment routing header (routing type 4)",
+     "caption": "The segment list is stored in reverse order and Segments Left points to the active SID, which is copied into the IPv6 destination address at each segment endpoint. Every full SID costs 16 bytes, which is why micro-SIDs matter.",
+     "width": 64,
+     "fields": [
       {
-       "label": "Locator: block",
-       "parts": [
-        "Common prefix for the SRv6 domain, for example fcbb:bb00::/32",
-        "Summarisable and filterable"
-       ]
+       "label": "Next header",
+       "bits": 8
       },
       {
-       "label": "Locator: node",
-       "parts": [
-        "Identifies the node within the block",
-        "Advertised by the IGP as a routable prefix"
-       ]
+       "label": "Hdr ext len",
+       "bits": 8
       },
       {
-       "label": "Function",
-       "parts": [
-        "Behaviour bound to the SID: End, End.X, End.DT4 and so on",
-        "Locally significant to the node"
-       ]
+       "label": "Routing type 4",
+       "bits": 8
       },
       {
-       "label": "Argument",
-       "parts": [
-        "Optional parameters for some behaviours",
-        "Often zero"
-       ]
+       "label": "Segments left",
+       "bits": 8
+      },
+      {
+       "label": "Last entry",
+       "bits": 8
+      },
+      {
+       "label": "Flags",
+       "bits": 8
+      },
+      {
+       "label": "Tag",
+       "bits": 16
+      },
+      {
+       "label": "Segment list [0]: last SID",
+       "bits": 128
+      },
+      {
+       "label": "Segment list [1]",
+       "bits": 128
+      }
+     ]
+    },
+    {
+     "type": "packet",
+     "title": "An SRv6 micro-SID carrier (32-bit block, 16-bit micro-SIDs)",
+     "caption": "Destination fcbb:bb00:6:4:e001:: steers through P6 to PE4 and into a VRF with no SRH at all: each node consumes its own micro-SID and shifts the rest left. A classic SID has the same logic in one address: locator (block + node), function and optional argument.",
+     "width": 64,
+     "fields": [
+      {
+       "label": "Block fcbb:bb00",
+       "bits": 32
+      },
+      {
+       "label": "uN 0006: P6",
+       "bits": 16
+      },
+      {
+       "label": "uN 0004: PE4",
+       "bits": 16
+      },
+      {
+       "label": "uDT e001: VRF",
+       "bits": 16
+      },
+      {
+       "label": "End of carrier (zeros)",
+       "bits": 48
       }
      ]
     },
@@ -1443,7 +2043,7 @@ TRACK.modules.push({
        "items": [
         "Plain IPv6 transit: non-SRv6 routers forward on the locator prefix",
         "Service and transport in one address",
-        "Full 128-bit SIDs are heavy; compressed micro-SIDs pack several segments into one address",
+        "Full 128-bit SIDs are heavy; compressed micro-SIDs (the IETF NEXT-C-SID flavour) pack several segments into one address",
         "Requires careful filtering of the SID block at domain edges and solid IPv6 operations"
        ]
       }
@@ -1527,6 +2127,16 @@ TRACK.modules.push({
        "term": "End.DT4",
        "def": "SRv6 behaviour that decapsulates and performs an IPv4 lookup in a specific VRF table."
       }
+     ]
+    },
+    {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "Segment routing puts the path in the packet; transit nodes keep no per-path state.",
+      "A prefix SID label is the next hop's SRGB base plus the index; identical SRGBs keep labels the same everywhere.",
+      "TI-LFA encodes the post-convergence path with node and adjacency SIDs for full coverage; check maximum SID depth and MTU.",
+      "SRv6 SIDs are routable IPv6 addresses: compress them with micro-SIDs and filter the SID block at domain edges."
      ]
     },
     {
@@ -1669,6 +2279,50 @@ TRACK.modules.push({
      ]
     },
     {
+     "type": "sequence",
+     "title": "On-demand next hop: from coloured route to steered traffic",
+     "caption": "No policy was configured for PE4: the colour on the route triggers the template, the PCE returns a latency-optimised segment list, and only PE1 ever holds the policy state.",
+     "actors": [
+      "PE4",
+      "RR",
+      "PE1",
+      "PCE"
+     ],
+     "steps": [
+      {
+       "from": 0,
+       "to": 1,
+       "label": "VPN route, colour 100, NH 10.255.0.4"
+      },
+      {
+       "from": 1,
+       "to": 2,
+       "label": "Reflected; colour kept"
+      },
+      {
+       "from": 2,
+       "to": 2,
+       "label": "No policy yet: use ODN template"
+      },
+      {
+       "from": 2,
+       "to": 3,
+       "label": "PCEP request: min latency to PE4"
+      },
+      {
+       "from": 3,
+       "to": 2,
+       "label": "Segment list from BGP-LS topology",
+       "reply": true
+      },
+      {
+       "from": 2,
+       "to": 2,
+       "label": "Policy up; route steered into it"
+      }
+     ]
+    },
+    {
      "type": "cli",
      "title": "Low-latency VPN traffic with colour steering",
      "device": "PE1 · hierarchical IOS-style CLI",
@@ -1701,6 +2355,116 @@ TRACK.modules.push({
      "kind": "insight",
      "text": "Flexible Algorithm lets the IGP compute additional topologies, numbered 128 to 255, each with its own metric type (IGP, delay or TE) and constraints such as excluding links with a given affinity. Every router that participates in an algorithm advertises an extra prefix SID for it. A headend that wants the low-latency topology simply pushes the algorithm-specific SID of the destination. Combined with automated steering, Flex-Algo delivers latency-optimised or plane-disjoint paths with one SID and no controller.",
      "title": "Flex-Algo: traffic engineering without explicit policies"
+    },
+    {
+     "type": "topology",
+     "title": "A controller-assisted SR-TE domain",
+     "caption": "The PCE learns topology, delay and SIDs through BGP-LS, computes the low-latency segment list and hands it to PE1 over PCEP; P routers keep no per-policy state.",
+     "nodes": [
+      {
+       "id": "PCE",
+       "kind": "controller",
+       "label": "PCE",
+       "sub": "Stateful path computation",
+       "x": 3.5,
+       "y": 0
+      },
+      {
+       "id": "PE1",
+       "kind": "router",
+       "label": "PE1",
+       "sub": "Headend",
+       "x": 0,
+       "y": 3
+      },
+      {
+       "id": "P1",
+       "kind": "router",
+       "label": "P1",
+       "x": 2,
+       "y": 2
+      },
+      {
+       "id": "P2",
+       "kind": "router",
+       "label": "P2",
+       "x": 2,
+       "y": 4
+      },
+      {
+       "id": "P3",
+       "kind": "router",
+       "label": "P3",
+       "x": 5,
+       "y": 2
+      },
+      {
+       "id": "P5",
+       "kind": "router",
+       "label": "P5",
+       "x": 5,
+       "y": 4
+      },
+      {
+       "id": "PE4",
+       "kind": "router",
+       "label": "PE4",
+       "sub": "10.255.0.4",
+       "x": 7,
+       "y": 3
+      }
+     ],
+     "links": [
+      {
+       "a": "PE1",
+       "b": "P1"
+      },
+      {
+       "a": "PE1",
+       "b": "P2",
+       "style": "bold"
+      },
+      {
+       "a": "P1",
+       "b": "P2"
+      },
+      {
+       "a": "P1",
+       "b": "P3",
+       "label": "9 ms"
+      },
+      {
+       "a": "P2",
+       "b": "P5",
+       "label": "2 ms",
+       "style": "bold"
+      },
+      {
+       "a": "P3",
+       "b": "P5"
+      },
+      {
+       "a": "P3",
+       "b": "PE4"
+      },
+      {
+       "a": "P5",
+       "b": "PE4",
+       "style": "bold"
+      },
+      {
+       "a": "PCE",
+       "b": "PE1",
+       "label": "PCEP",
+       "style": "dashed"
+      },
+      {
+       "a": "PCE",
+       "b": "P3",
+       "label": "BGP-LS feed",
+       "style": "dashed"
+      }
+     ]
     },
     {
      "type": "flow",
@@ -1872,7 +2636,21 @@ TRACK.modules.push({
       {
        "term": "MRU",
        "def": "Maximum receive unit for labelled packets on a hop, reported by LSP trace."
+      },
+      {
+       "term": "BGP-LS",
+       "def": "BGP link-state: an address family that exports IGP topology, TE attributes and SIDs from the network to controllers and PCEs (current specification RFC 9552)."
       }
+     ]
+    },
+    {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "SR-TE keeps path state only at the headend; RSVP-TE keeps it at every midpoint.",
+      "An SR policy is headend, colour and endpoint, with candidate paths, segment lists and a binding SID.",
+      "Colour communities with automated steering and ODN put VPN routes on intent-based paths without per-route configuration.",
+      "Troubleshoot label paths layer by layer: IGP /32, labels, LFIB, service route, LSP trace, then MTU and QoS."
      ]
     },
     {
@@ -1948,7 +2726,7 @@ TRACK.modules.push({
  "outcomes": [
   "Explain the VXLAN data plane and every EVPN route type, and use them to reason about forwarding.",
   "Build tenant routing with symmetric IRB, anycast gateways and type-5 routes, including border connectivity.",
-  "Design multihoming and a robust leaf-spine underlay with correct EVPN control-plane roles.",
+  "Design multihoming, a robust leaf-spine underlay and AI/ML back-end fabrics with correct EVPN control-plane roles.",
   "Architect SD-WAN overlay routing, policy, application steering and security integration.",
   "Plan and execute migrations from legacy WAN and data-centre networks with safe coexistence."
  ],
@@ -1966,7 +2744,7 @@ TRACK.modules.push({
    "blocks": [
     {
      "type": "text",
-     "text": "The **Fabric** segment of the Mastery Ring covers overlays: networks built on top of a simple routed underlay. In the data centre the dominant pattern is **VXLAN with an EVPN control plane** (EVPN is defined in RFC 7432 for MPLS; its use with VXLAN and other overlays is specified separately). VXLAN supplies the encapsulation; EVPN replaces flood-and-learn with BGP advertisement of MAC addresses, IP addresses and flooding lists. In the WAN the same idea appears as SD-WAN. This lesson nails down the data plane and the route types, because every later topic, from symmetric IRB to multihoming, is just a particular use of them."
+     "text": "The **Fabric** segment of the Mastery Ring covers overlays: networks built on top of a simple routed underlay. In the data centre the dominant pattern is **VXLAN with an EVPN control plane** (EVPN is defined in RFC 7432 for MPLS; RFC 8365 specifies it over VXLAN and other overlays, and RFC 9135 and RFC 9136 cover integrated routing and IP-prefix routes). VXLAN supplies the encapsulation; EVPN replaces flood-and-learn with BGP advertisement of MAC addresses, IP addresses and flooding lists. In the WAN the same idea appears as SD-WAN. This lesson nails down the data plane and the route types, because every later topic, from symmetric IRB to multihoming, is just a particular use of them."
     },
     {
      "type": "layers",
@@ -2006,6 +2784,45 @@ TRACK.modules.push({
         "Original Ethernet frame without FCS",
         "Tenant VLAN tag normally stripped and mapped to the VNI"
        ]
+      }
+     ]
+    },
+    {
+     "type": "packet",
+     "title": "Outer UDP and VXLAN headers",
+     "caption": "Sixteen bytes sit between the outer IP header and the tenant frame. The source port is a hash of the inner headers for ECMP entropy, port 4789 identifies VXLAN, and the I flag marks the 24-bit VNI as valid.",
+     "fields": [
+      {
+       "label": "Source port: flow hash",
+       "bits": 16
+      },
+      {
+       "label": "Destination port 4789",
+       "bits": 16
+      },
+      {
+       "label": "UDP length",
+       "bits": 16
+      },
+      {
+       "label": "UDP checksum (often 0)",
+       "bits": 16
+      },
+      {
+       "label": "Flags (I set)",
+       "bits": 8
+      },
+      {
+       "label": "Reserved",
+       "bits": 24
+      },
+      {
+       "label": "VNI",
+       "bits": 24
+      },
+      {
+       "label": "Reserved",
+       "bits": 8
       }
      ]
     },
@@ -2097,28 +2914,54 @@ TRACK.modules.push({
      ]
     },
     {
-     "type": "flow",
+     "type": "sequence",
      "title": "How a host becomes reachable across the fabric",
-     "items": [
+     "caption": "Leaf4 learns locally and advertises once; every other leaf installs the MAC and host route, and Leaf1 answers Host A's ARP itself, so nothing is flooded.",
+     "actors": [
+      "Host 10.1.10.21",
+      "Leaf4",
+      "Spine",
+      "Leaf1",
+      "Host A"
+     ],
+     "steps": [
       {
-       "label": "Attach",
-       "text": "Host 10.1.10.21 sends ARP or any frame into VLAN 10 on Leaf4"
+       "from": 0,
+       "to": 1,
+       "label": "ARP or first frame in VLAN 10"
       },
       {
-       "label": "Local learn",
-       "text": "Leaf4 learns the MAC on the port and the IP from ARP or DHCP snooping"
+       "from": 1,
+       "to": 1,
+       "label": "Learn MAC on port, IP from ARP"
       },
       {
-       "label": "Advertise",
-       "text": "Leaf4 sends a type-2 route with MAC, IP, L2 VNI 10010, L3 VNI 50001 and its router MAC"
+       "from": 1,
+       "to": 2,
+       "label": "Type-2: MAC, IP, VNI 10010 / 50001",
+       "note": "Router MAC, RT 65104:10010"
       },
       {
-       "label": "Install",
-       "text": "Other leaves install the MAC behind VTEP Leaf4 and, for symmetric IRB, a /32 host route in the tenant VRF"
+       "from": 2,
+       "to": 3,
+       "label": "Type-2 passed on, next hop unchanged"
       },
       {
-       "label": "Suppress",
-       "text": "When Host A ARPs for 10.1.10.21, its own leaf answers from the known binding instead of flooding"
+       "from": 3,
+       "to": 3,
+       "label": "Install MAC and /32"
+      },
+      {
+       "from": 4,
+       "to": 3,
+       "label": "ARP: who has 10.1.10.21?"
+      },
+      {
+       "from": 3,
+       "to": 4,
+       "label": "ARP reply from Leaf1",
+       "reply": true,
+       "note": "Suppressed: nothing flooded"
       }
      ]
     },
@@ -2242,6 +3085,16 @@ TRACK.modules.push({
        "term": "BUM traffic",
        "def": "Broadcast, unknown-unicast and multicast frames that must be flooded within a segment."
       }
+     ]
+    },
+    {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "VXLAN adds 50 bytes on an IPv4 underlay; run jumbo frames on the underlay.",
+      "The hashed UDP source port gives underlay ECMP its entropy.",
+      "Type 2 carries hosts, type 3 builds flood lists, types 1 and 4 handle multihoming, type 5 carries prefixes.",
+      "MAC mobility sequence numbers track moves; rapid moves freeze a MAC as a duplicate."
      ]
     },
     {
@@ -2370,6 +3223,119 @@ TRACK.modules.push({
       {
        "label": "Deliver",
        "text": "Frame bridged into VLAN 20 toward the host"
+      }
+     ]
+    },
+    {
+     "type": "topology",
+     "title": "Symmetric IRB across the fabric",
+     "caption": "Leaf1 routes 10.1.10.11 → 10.1.20.25 into L3 VNI 50001 toward Leaf4's router MAC, and Leaf4 routes again into VLAN 20. Spines forward only the outer IP; the border leaf injects the default route as type 5.",
+     "nodes": [
+      {
+       "id": "S1",
+       "kind": "l3switch",
+       "label": "Spine1",
+       "x": 2,
+       "y": 0
+      },
+      {
+       "id": "S2",
+       "kind": "l3switch",
+       "label": "Spine2",
+       "x": 5,
+       "y": 0
+      },
+      {
+       "id": "W",
+       "kind": "cloud",
+       "label": "WAN / firewall",
+       "x": 7,
+       "y": 0
+      },
+      {
+       "id": "L1",
+       "kind": "l3switch",
+       "label": "Leaf1",
+       "sub": "VTEP 10.255.2.1",
+       "x": 1,
+       "y": 2
+      },
+      {
+       "id": "L4",
+       "kind": "l3switch",
+       "label": "Leaf4",
+       "sub": "VTEP 10.255.2.4",
+       "x": 3.5,
+       "y": 2
+      },
+      {
+       "id": "BL",
+       "kind": "l3switch",
+       "label": "Border leaf",
+       "sub": "VTEP 10.255.2.9",
+       "x": 6,
+       "y": 2
+      },
+      {
+       "id": "H1",
+       "kind": "host",
+       "label": "10.1.10.11",
+       "sub": "VLAN 10",
+       "x": 1,
+       "y": 4
+      },
+      {
+       "id": "H2",
+       "kind": "host",
+       "label": "10.1.20.25",
+       "sub": "VLAN 20",
+       "x": 3.5,
+       "y": 4
+      }
+     ],
+     "links": [
+      {
+       "a": "S1",
+       "b": "L1"
+      },
+      {
+       "a": "S1",
+       "b": "L4"
+      },
+      {
+       "a": "S1",
+       "b": "BL"
+      },
+      {
+       "a": "S2",
+       "b": "L1"
+      },
+      {
+       "a": "S2",
+       "b": "L4"
+      },
+      {
+       "a": "S2",
+       "b": "BL"
+      },
+      {
+       "a": "L1",
+       "b": "L4",
+       "label": "VXLAN, VNI 50001",
+       "style": "tunnel"
+      },
+      {
+       "a": "BL",
+       "b": "W",
+       "label": "eBGP"
+      },
+      {
+       "a": "L1",
+       "b": "H1"
+      },
+      {
+       "a": "L4",
+       "b": "H2"
       }
      ]
     },
@@ -2551,6 +3517,16 @@ TRACK.modules.push({
      ]
     },
     {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "Symmetric IRB routes at both the ingress and egress leaf through one L3 VNI per VRF.",
+      "Every leaf shares the same anycast gateway IP and MAC, so hosts always find their gateway one hop away.",
+      "Use type-5 routes for subnets with silent hosts and for external or summary prefixes.",
+      "Routed VXLAN frames are addressed to the egress leaf's router MAC."
+     ]
+    },
+    {
      "type": "quiz",
      "items": [
       {
@@ -2620,7 +3596,8 @@ TRACK.modules.push({
    "objectives": [
     "Explain how ESI multihoming uses route types 1 and 4 for aliasing, mass withdrawal and DF election.",
     "Compare EVPN multihoming with peer-link based multi-chassis link aggregation.",
-    "Design an underlay: protocol, addressing, MTU, ECMP, and the role of spines in the EVPN control plane."
+    "Design an underlay: protocol, addressing, MTU, ECMP, and the role of spines in the EVPN control plane.",
+    "Describe how AI/ML back-end fabrics differ: rail-optimised, non-blocking and lossless for RoCEv2"
    ],
    "blocks": [
     {
@@ -2655,6 +3632,107 @@ TRACK.modules.push({
        "label": "SH",
        "title": "Split horizon",
        "text": "With VXLAN, local bias: a leaf does not forward BUM back to an ES it shares with the sending VTEP."
+      }
+     ]
+    },
+    {
+     "type": "topology",
+     "title": "An all-active Ethernet segment",
+     "caption": "Both leaves share the ESI and LACP system ID, so the server sees one partner. Leaf7 load-balances to both through type-1 aliasing, and per-VLAN DF election stops duplicate BUM delivery.",
+     "nodes": [
+      {
+       "id": "S1",
+       "kind": "l3switch",
+       "label": "Spine1",
+       "sub": "EVPN route server",
+       "x": 2,
+       "y": 0
+      },
+      {
+       "id": "S2",
+       "kind": "l3switch",
+       "label": "Spine2",
+       "sub": "EVPN route server",
+       "x": 5,
+       "y": 0
+      },
+      {
+       "id": "L1",
+       "kind": "l3switch",
+       "label": "Leaf1",
+       "sub": "DF for VLAN 10",
+       "x": 1,
+       "y": 2
+      },
+      {
+       "id": "L2",
+       "kind": "l3switch",
+       "label": "Leaf2",
+       "sub": "DF for VLAN 20",
+       "x": 3,
+       "y": 2
+      },
+      {
+       "id": "L7",
+       "kind": "l3switch",
+       "label": "Leaf7",
+       "sub": "Remote: aliasing",
+       "x": 6,
+       "y": 2
+      },
+      {
+       "id": "SRV",
+       "kind": "server",
+       "label": "srv-db-01",
+       "sub": "One LACP partner",
+       "x": 2,
+       "y": 4
+      }
+     ],
+     "links": [
+      {
+       "a": "S1",
+       "b": "L1"
+      },
+      {
+       "a": "S1",
+       "b": "L2"
+      },
+      {
+       "a": "S1",
+       "b": "L7"
+      },
+      {
+       "a": "S2",
+       "b": "L1"
+      },
+      {
+       "a": "S2",
+       "b": "L2"
+      },
+      {
+       "a": "S2",
+       "b": "L7"
+      },
+      {
+       "a": "L1",
+       "b": "SRV",
+       "label": "Po11"
+      },
+      {
+       "a": "L2",
+       "b": "SRV",
+       "label": "Po11"
+      }
+     ],
+     "zones": [
+      {
+       "label": "ES ...6677:8899",
+       "x": 1,
+       "y": 2,
+       "w": 3,
+       "h": 3,
+       "tone": "accent"
       }
      ]
     },
@@ -2817,12 +3895,130 @@ TRACK.modules.push({
       {
        "name": "Leaf oversubscription",
        "expr": "server-facing bandwidth ÷ spine-facing bandwidth",
-       "meaning": "48 × 25G down and 6 × 100G up gives 1200 ÷ 600 = 2:1; storage and AI clusters often demand 1:1."
+       "meaning": "48 × 100G down and 8 × 400G up gives 4,800 ÷ 3,200 = 1.5:1; storage and AI back-end fabrics are built non-blocking (1:1)."
       },
       {
        "name": "Spine count for ECMP",
        "expr": "uplinks per leaf = spines (one link each)",
        "meaning": "Losing one of four spines removes 25% of fabric capacity; plan failure headroom."
+      }
+     ]
+    },
+    {
+     "type": "text",
+     "text": "**AI and ML back-end fabrics** are the fastest-growing data-centre design and break several habits. GPU servers attach with 400G or 800G NICs, often one per GPU, in a **rail-optimised** layout: NIC 1 of every server connects to rail leaf 1, NIC 2 to rail leaf 2, and so on, so most collective traffic stays one switch hop away. The fabric is non-blocking, carries a few enormous flows rather than millions of small ones, and the slowest flow decides job completion time. GPU-to-GPU memory traffic usually runs as **RoCEv2** (RDMA over UDP port 4791), which degrades sharply under loss, so these fabrics are engineered to be lossless or near-lossless with PFC and ECN (see the Stream module), and flow-hash ECMP is supplemented by adaptive routing or packet spraying because a handful of elephant flows polarise easily. The **Ultra Ethernet Consortium** published its first specification in 2025, defining a new Ethernet transport with multipath packet spraying and its own congestion control; treat product support as emerging and check its current status."
+    },
+    {
+     "type": "topology",
+     "title": "A rail-optimised AI back-end fabric",
+     "caption": "NIC n of every GPU server lands on rail leaf n, so traffic between same-rank GPUs crosses one switch and spines carry only cross-rail traffic. Links are 400G or 800G and the fabric is non-blocking.",
+     "nodes": [
+      {
+       "id": "SP1",
+       "kind": "l3switch",
+       "label": "Spine 1",
+       "x": 2,
+       "y": 0
+      },
+      {
+       "id": "SP2",
+       "kind": "l3switch",
+       "label": "Spine 2",
+       "x": 5,
+       "y": 0
+      },
+      {
+       "id": "R1",
+       "kind": "switch",
+       "label": "Rail leaf 1",
+       "x": 1,
+       "y": 2
+      },
+      {
+       "id": "R2",
+       "kind": "switch",
+       "label": "Rail leaf 2",
+       "x": 3,
+       "y": 2
+      },
+      {
+       "id": "R8",
+       "kind": "switch",
+       "label": "Rail leaf 8",
+       "x": 6,
+       "y": 2
+      },
+      {
+       "id": "G1",
+       "kind": "server",
+       "label": "GPU server 1",
+       "sub": "8 GPUs, 8 × 400G NICs",
+       "x": 2,
+       "y": 4
+      },
+      {
+       "id": "G2",
+       "kind": "server",
+       "label": "GPU server 2",
+       "sub": "8 GPUs, 8 × 400G NICs",
+       "x": 5,
+       "y": 4
+      }
+     ],
+     "links": [
+      {
+       "a": "SP1",
+       "b": "R1"
+      },
+      {
+       "a": "SP1",
+       "b": "R2"
+      },
+      {
+       "a": "SP1",
+       "b": "R8"
+      },
+      {
+       "a": "SP2",
+       "b": "R1"
+      },
+      {
+       "a": "SP2",
+       "b": "R2"
+      },
+      {
+       "a": "SP2",
+       "b": "R8"
+      },
+      {
+       "a": "G1",
+       "b": "R1",
+       "label": "NIC 1"
+      },
+      {
+       "a": "G1",
+       "b": "R2",
+       "label": "NIC 2"
+      },
+      {
+       "a": "G1",
+       "b": "R8",
+       "label": "NIC 8"
+      },
+      {
+       "a": "G2",
+       "b": "R1",
+       "label": "NIC 1"
+      },
+      {
+       "a": "G2",
+       "b": "R2",
+       "label": "NIC 2"
+      },
+      {
+       "a": "G2",
+       "b": "R8",
+       "label": "NIC 8"
       }
      ]
     },
@@ -2894,6 +4090,16 @@ TRACK.modules.push({
      ]
     },
     {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "EVPN multihoming uses one ESI and one LACP system ID across leaves, with no peer link.",
+      "Type 1 per ES gives mass withdrawal, type 1 per EVI gives aliasing, type 4 drives DF election.",
+      "Keep the underlay boring: routed point-to-point links, jumbo MTU, ECMP and BFD; spines must not rewrite EVPN next hops.",
+      "AI back-end fabrics are rail-optimised, non-blocking and lossless for RoCEv2, with smarter load balancing than flow hashing."
+     ]
+    },
+    {
      "type": "quiz",
      "items": [
       {
@@ -2930,15 +4136,15 @@ TRACK.modules.push({
        "explain": "eBGP would normally set next hop self, which would make spines the VXLAN tunnel endpoint. Spines do not route tenant traffic, RDs are not derived this way, and eBGP does change next hops by default."
       },
       {
-       "q": "A leaf has 48 × 25G server ports and 4 × 100G uplinks. What is its oversubscription ratio?",
+       "q": "A leaf has 48 × 100G server ports and 4 × 400G uplinks. What is its oversubscription ratio?",
        "options": [
-        "3:1, because 1,200 Gbit/s of server capacity shares 400 Gbit/s of uplink capacity.",
+        "3:1, because 4,800 Gbit/s of server capacity shares 1,600 Gbit/s of uplink capacity.",
         "2:1, because only half of the server ports are expected to transmit at the same time.",
-        "1.2:1, because each 100G uplink can carry four 25G flows with some headroom left.",
+        "1.2:1, because each 400G uplink can carry four 100G flows with some headroom left.",
         "12:1, because there are twelve server ports for each individual uplink port on the leaf."
        ],
        "answer": 0,
-       "explain": "48 × 25 = 1,200 and 4 × 100 = 400, giving 3:1. Ratios compare bandwidth, not port counts, and do not assume traffic patterns."
+       "explain": "48 × 100 = 4,800 and 4 × 400 = 1,600, giving 3:1. Ratios compare bandwidth, not port counts, and do not assume traffic patterns."
       },
       {
        "q": "Which statement about EVPN multihoming compared with peer-link MLAG is accurate?",
@@ -3005,6 +4211,105 @@ TRACK.modules.push({
      ]
     },
     {
+     "type": "topology",
+     "title": "One SD-WAN site, three transports",
+     "caption": "The edge builds IPsec tunnels per transport to permitted peers, while controllers distribute routes, locators and keys over separate control sessions; internet-bound traffic can break out to a nearby cloud security point of presence.",
+     "nodes": [
+      {
+       "id": "C",
+       "kind": "controller",
+       "label": "Controllers",
+       "sub": "Routes, keys, policy",
+       "x": 3.5,
+       "y": 0
+      },
+      {
+       "id": "M",
+       "kind": "cloud",
+       "label": "MPLS",
+       "x": 1.5,
+       "y": 2
+      },
+      {
+       "id": "I",
+       "kind": "internet",
+       "label": "Internet",
+       "x": 3.5,
+       "y": 2
+      },
+      {
+       "id": "T",
+       "kind": "tower",
+       "label": "5G / LTE",
+       "x": 5.5,
+       "y": 2
+      },
+      {
+       "id": "S",
+       "kind": "cloud",
+       "label": "Cloud security",
+       "sub": "SSE point of presence",
+       "x": 7,
+       "y": 2
+      },
+      {
+       "id": "B",
+       "kind": "router",
+       "label": "Branch edge",
+       "x": 2,
+       "y": 4
+      },
+      {
+       "id": "H",
+       "kind": "router",
+       "label": "Hub edge",
+       "sub": "Data centre",
+       "x": 5,
+       "y": 4
+      }
+     ],
+     "links": [
+      {
+       "a": "B",
+       "b": "M"
+      },
+      {
+       "a": "B",
+       "b": "I"
+      },
+      {
+       "a": "B",
+       "b": "T"
+      },
+      {
+       "a": "H",
+       "b": "M"
+      },
+      {
+       "a": "H",
+       "b": "I"
+      },
+      {
+       "a": "C",
+       "b": "B",
+       "label": "control",
+       "style": "dashed"
+      },
+      {
+       "a": "C",
+       "b": "H",
+       "label": "control",
+       "style": "dashed"
+      },
+      {
+       "a": "B",
+       "b": "S",
+       "label": "DIA tunnel",
+       "style": "tunnel"
+      }
+     ]
+    },
+    {
      "type": "table",
      "title": "Core components and their roles",
      "head": [
@@ -3041,28 +4346,65 @@ TRACK.modules.push({
      ]
     },
     {
-     "type": "flow",
+     "type": "sequence",
      "title": "An edge joins the overlay",
-     "items": [
+     "caption": "Identity comes first, configuration second and tunnels last; the controllers also tell the edge its post-NAT public address, which other edges need to reach it.",
+     "actors": [
+      "New edge",
+      "Onboarding service",
+      "Controller",
+      "Manager",
+      "Peer edge"
+     ],
+     "steps": [
       {
-       "label": "Boot and discover",
-       "text": "Edge reaches the onboarding service over any working transport"
+       "from": 0,
+       "to": 1,
+       "label": "Where are my controllers?",
+       "note": "Over any working transport"
       },
       {
-       "label": "Authenticate",
-       "text": "Mutual certificate authentication with controllers over TLS or DTLS"
+       "from": 1,
+       "to": 0,
+       "label": "Controller addresses, organisation",
+       "reply": true
       },
       {
-       "label": "Receive intent",
-       "text": "Configuration template, policies and data-plane keys"
+       "from": 0,
+       "to": 2,
+       "label": "TLS or DTLS, mutual certificates"
       },
       {
-       "label": "Advertise",
-       "text": "Its LAN prefixes and transport locators to the controllers"
+       "from": 2,
+       "to": 0,
+       "label": "Session up; public NAT address seen",
+       "reply": true
       },
       {
-       "label": "Build tunnels",
-       "text": "IPsec to permitted peers on each transport; probes start immediately"
+       "from": 3,
+       "to": 0,
+       "label": "Template and policies"
+      },
+      {
+       "from": 0,
+       "to": 2,
+       "label": "LAN prefixes, transport locators"
+      },
+      {
+       "from": 2,
+       "to": 0,
+       "label": "Peer locators, routes, keys",
+       "reply": true
+      },
+      {
+       "from": 0,
+       "to": 4,
+       "label": "IPsec tunnel per permitted transport"
+      },
+      {
+       "from": 0,
+       "to": 4,
+       "label": "Probes: loss, latency, jitter"
       }
      ]
     },
@@ -3230,6 +4572,16 @@ TRACK.modules.push({
      ]
     },
     {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "Keep transport, overlay and policy separate when you design and when you troubleshoot.",
+      "Edges authenticate with device certificates; controllers distribute routes, transport locators, keys and policy.",
+      "Control policy shapes the topology; data policy and application-aware routing act on flows against SLA classes.",
+      "Direct internet access still needs inspection, on the box or in a nearby cloud security service."
+     ]
+    },
+    {
      "type": "quiz",
      "items": [
       {
@@ -3355,6 +4707,93 @@ TRACK.modules.push({
       {
        "label": "Reverse path",
        "text": "Overlay prefixes go to MPLS tagged 'from-overlay'; anything carrying that tag is never redistributed back"
+      }
+     ]
+    },
+    {
+     "type": "topology",
+     "title": "Coexistence through a transit hub",
+     "caption": "Routes from MPLS are tagged 65110 as they enter OSPF and refused on the way back; overlay routes carry community 65000:900 into MPLS and are refused if they return. A second hub must apply exactly the same marks.",
+     "nodes": [
+      {
+       "id": "MC",
+       "kind": "cloud",
+       "label": "MPLS VPN",
+       "sub": "Legacy WAN",
+       "x": 1.5,
+       "y": 0
+      },
+      {
+       "id": "OV",
+       "kind": "cloud",
+       "label": "SD-WAN overlay",
+       "x": 5.5,
+       "y": 0
+      },
+      {
+       "id": "LS",
+       "kind": "router",
+       "label": "Legacy site",
+       "x": 0,
+       "y": 3
+      },
+      {
+       "id": "HCE",
+       "kind": "router",
+       "label": "Hub CE",
+       "sub": "AS 65110",
+       "x": 2.5,
+       "y": 2
+      },
+      {
+       "id": "HE",
+       "kind": "router",
+       "label": "Hub SD-WAN edge",
+       "x": 4.5,
+       "y": 2
+      },
+      {
+       "id": "NS",
+       "kind": "router",
+       "label": "Migrated site",
+       "x": 7,
+       "y": 3
+      }
+     ],
+     "links": [
+      {
+       "a": "LS",
+       "b": "MC",
+       "label": "eBGP via PE"
+      },
+      {
+       "a": "MC",
+       "b": "HCE",
+       "label": "eBGP"
+      },
+      {
+       "a": "HCE",
+       "b": "HE",
+       "label": "OSPF",
+       "style": "bold"
+      },
+      {
+       "a": "HE",
+       "b": "OV"
+      },
+      {
+       "a": "OV",
+       "b": "NS"
+      }
+     ],
+     "zones": [
+      {
+       "label": "Transit hub",
+       "x": 2.5,
+       "y": 2,
+       "w": 3,
+       "h": 1,
+       "tone": "accent"
       }
      ]
     },
@@ -3502,6 +4941,16 @@ TRACK.modules.push({
     {
      "type": "reflection",
      "prompt": "Pick a migration you have been part of or have watched. Where was the boundary between old and new, what protected it against loops and duplicate gateways, and what single extra check would most have reduced risk?"
+    },
+    {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "Migrations succeed through a controlled boundary that can coexist for months and roll back at every step.",
+      "Mark routes by origin at every boundary and make the preference between old and new explicit.",
+      "In data-centre moves, migrate hosts first and gateways last, one VLAN per change.",
+      "Reuse the legacy virtual MAC or send gratuitous ARP when the gateway moves."
+     ]
     },
     {
      "type": "quiz",
@@ -3669,28 +5118,74 @@ TRACK.modules.push({
      ]
     },
     {
-     "type": "flow",
+     "type": "sequence",
      "title": "PIM-SM from first packet to shortest-path tree",
-     "items": [
+     "caption": "Receivers and sources meet at the RP, the RP joins the source and stops the registers, and the last-hop router then joins the source directly and prunes it off the shared tree.",
+     "actors": [
+      "Receiver",
+      "R3 (last hop)",
+      "R2 (RP)",
+      "R1 (first hop)",
+      "Source"
+     ],
+     "steps": [
       {
-       "label": "Receiver joins",
-       "text": "Last-hop router (receiver DR) gets an IGMP report and sends (*,G) join toward the RP"
+       "from": 0,
+       "to": 1,
+       "label": "IGMP report for 239.1.1.1"
       },
       {
-       "label": "Source registers",
-       "text": "First-hop router (source DR) encapsulates packets in unicast register messages to the RP"
+       "from": 1,
+       "to": 2,
+       "label": "(*,G) join toward the RP"
       },
       {
-       "label": "RP joins source",
-       "text": "RP sends (S,G) join toward the source, then a register-stop once native traffic arrives"
+       "from": 4,
+       "to": 3,
+       "label": "Multicast data"
       },
       {
-       "label": "Shared tree",
-       "text": "Traffic flows source to RP to receivers along the (*,G) tree"
+       "from": 3,
+       "to": 2,
+       "label": "Register (unicast-encapsulated)"
       },
       {
-       "label": "SPT switchover",
-       "text": "Last-hop router joins (S,G) toward the source and prunes S from the shared tree"
+       "from": 2,
+       "to": 3,
+       "label": "(S,G) join toward the source"
+      },
+      {
+       "from": 3,
+       "to": 2,
+       "label": "Native (S,G) traffic"
+      },
+      {
+       "from": 2,
+       "to": 3,
+       "label": "Register-stop",
+       "reply": true
+      },
+      {
+       "from": 2,
+       "to": 1,
+       "label": "Traffic down the shared tree"
+      },
+      {
+       "from": 1,
+       "to": 3,
+       "label": "(S,G) join: switch to the SPT",
+       "note": "RPF neighbour 10.1.13.1"
+      },
+      {
+       "from": 3,
+       "to": 1,
+       "label": "Traffic on the shortest-path tree"
+      },
+      {
+       "from": 1,
+       "to": 2,
+       "label": "(S,G,rpt) prune",
+       "note": "Stop S on the shared tree"
       }
      ]
     },
@@ -3731,6 +5226,84 @@ TRACK.modules.push({
       "    Vlan20, Forward/Sparse, 00:11:58/00:02:41"
      ],
      "note": "S = sparse, J = join SPT, C = connected receiver, T = traffic flowing on the shortest-path tree. The (S,G) entry has a different incoming interface from the (*,G) entry because the source path does not run through the RP."
+    },
+    {
+     "type": "topology",
+     "title": "Shared tree and shortest-path tree",
+     "caption": "R3's (*,G) entry points up Gi0/0 toward the RP via R2 (10.1.23.2); after switchover its (S,G) entry arrives on Gi0/1 from R1 (10.1.13.1), which is why the two entries show different incoming interfaces.",
+     "nodes": [
+      {
+       "id": "SRC",
+       "kind": "server",
+       "label": "Source",
+       "sub": "10.50.0.5",
+       "x": 0,
+       "y": 2
+      },
+      {
+       "id": "R1",
+       "kind": "router",
+       "label": "R1",
+       "sub": "First hop, registers",
+       "x": 2,
+       "y": 2
+      },
+      {
+       "id": "R2",
+       "kind": "router",
+       "label": "R2 (RP)",
+       "sub": "10.255.0.100",
+       "x": 4,
+       "y": 0
+      },
+      {
+       "id": "R3",
+       "kind": "router",
+       "label": "R3",
+       "sub": "Last hop, DR VLAN 20",
+       "x": 5,
+       "y": 3
+      },
+      {
+       "id": "RCV",
+       "kind": "host",
+       "label": "Receivers",
+       "sub": "VLAN 20",
+       "x": 5,
+       "y": 5
+      }
+     ],
+     "links": [
+      {
+       "a": "SRC",
+       "b": "R1"
+      },
+      {
+       "a": "R1",
+       "b": "R2",
+       "label": "shared tree",
+       "style": "dashed"
+      },
+      {
+       "a": "R2",
+       "b": "R3",
+       "label": "shared tree",
+       "bEnd": "Gi0/0",
+       "style": "dashed"
+      },
+      {
+       "a": "R1",
+       "b": "R3",
+       "label": "SPT",
+       "bEnd": "Gi0/1",
+       "style": "bold"
+      },
+      {
+       "a": "R3",
+       "b": "RCV",
+       "label": "IGMPv3"
+      }
+     ]
     },
     {
      "type": "table",
@@ -3850,6 +5423,16 @@ TRACK.modules.push({
        "term": "Assert",
        "def": "PIM election that removes duplicate forwarders onto a shared segment."
       }
+     ]
+    },
+    {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "Multicast is receiver-driven: IGMP or MLD signals interest and PIM builds the tree.",
+      "Snooping switches need a querier on the VLAN, or memberships expire.",
+      "PIM-SM starts on the shared tree through the RP and normally switches to the source tree.",
+      "Duplicates for a moment on a LAN are usually an assert, not a loop."
      ]
     },
     {
@@ -3998,6 +5581,90 @@ TRACK.modules.push({
      ]
     },
     {
+     "type": "topology",
+     "title": "Anycast RP with MSDP",
+     "caption": "Both RPs own 10.255.0.100, so each router registers or joins at the nearest instance. RP1 tells RP2 about the source in a source-active message sent from its unique loopback; RP2 then joins toward the source.",
+     "nodes": [
+      {
+       "id": "SRC",
+       "kind": "server",
+       "label": "Source",
+       "sub": "10.50.0.5",
+       "x": 0,
+       "y": 4
+      },
+      {
+       "id": "FHR",
+       "kind": "router",
+       "label": "First hop",
+       "x": 1,
+       "y": 3
+      },
+      {
+       "id": "RP1",
+       "kind": "router",
+       "label": "RP1",
+       "sub": "Lo0 .11, anycast .100",
+       "x": 2,
+       "y": 1
+      },
+      {
+       "id": "RP2",
+       "kind": "router",
+       "label": "RP2",
+       "sub": "Lo0 .12, anycast .100",
+       "x": 5,
+       "y": 1
+      },
+      {
+       "id": "LHR",
+       "kind": "router",
+       "label": "Last hop",
+       "x": 6,
+       "y": 3
+      },
+      {
+       "id": "RCV",
+       "kind": "host",
+       "label": "Receivers",
+       "x": 7,
+       "y": 4
+      }
+     ],
+     "links": [
+      {
+       "a": "SRC",
+       "b": "FHR"
+      },
+      {
+       "a": "FHR",
+       "b": "RP1",
+       "label": "register"
+      },
+      {
+       "a": "RP1",
+       "b": "RP2",
+       "label": "MSDP SA, TCP 639",
+       "style": "tunnel"
+      },
+      {
+       "a": "LHR",
+       "b": "RP2",
+       "label": "(*,G) join"
+      },
+      {
+       "a": "FHR",
+       "b": "LHR",
+       "label": "(S,G) tree",
+       "style": "bold"
+      },
+      {
+       "a": "LHR",
+       "b": "RCV"
+      }
+     ]
+    },
+    {
      "type": "cli",
      "title": "Anycast RP pair with MSDP",
      "device": "RP1 · IOS-style CLI",
@@ -4101,6 +5768,12 @@ TRACK.modules.push({
      ]
     },
     {
+     "type": "callout",
+     "kind": "insight",
+     "title": "Beyond PIM: BIER",
+     "text": "Bit Index Explicit Replication (RFC 8279) removes per-flow tree state from the core: the ingress router writes a bit string naming every egress router that needs the packet, and transit routers replicate by bitmask. It suits providers with many channels but needs data-plane support, so most networks still run PIM SSM or ASM, while EVPN fabrics carry tenant multicast with their own optimised replication."
+    },
+    {
      "type": "scenario",
      "title": "Choosing a design for a broadcast video service",
      "situation": "A broadcaster will deliver 400 live channels from two encoder sites to 3,000 set-top boxes over its own network. Set-top boxes support IGMPv3, the source addresses are known and fixed, and leadership wants the simplest design with the fewest failure points. What should you recommend?",
@@ -4162,6 +5835,16 @@ TRACK.modules.push({
        "term": "Administrative scoping",
        "def": "Use of 239.0.0.0/8 groups with boundaries so streams stay inside a region or organisation."
       }
+     ]
+    },
+    {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "RP choice decides behaviour under failure: static, BSR, anycast RP with MSDP or PIM, or embedded RP.",
+      "Anycast RPs must share sources and use unique addresses for MSDP and router IDs.",
+      "SSM needs no RP at all; prefer it whenever receivers can name the source.",
+      "Scope groups with administrative boundaries so local streams stay local."
      ]
     },
     {
@@ -4295,6 +5978,80 @@ TRACK.modules.push({
       "  Source: 10.50.0.5/32, Forwarding: 0/0/0/0, Other: 4183/4183/0"
      ],
      "note": "The unicast path to the source now points out Gi0/2, where no PIM neighbour exists, so R5 sends its join into nowhere. 'Other' counters equal to total packets mean every packet arriving on the old interface fails RPF and is dropped."
+    },
+    {
+     "type": "topology",
+     "title": "An RPF failure after a unicast change",
+     "caption": "R5's unicast route to 10.50.0.0/16 now points out Gi0/2 toward R6, where no PIM neighbour exists. Packets still arriving on Gi0/1 fail the RPF check, and joins sent toward R6 go nowhere.",
+     "nodes": [
+      {
+       "id": "SRC",
+       "kind": "server",
+       "label": "Source",
+       "sub": "10.50.0.5",
+       "x": 3,
+       "y": 0
+      },
+      {
+       "id": "R3",
+       "kind": "router",
+       "label": "R3",
+       "sub": "PIM enabled",
+       "x": 1.5,
+       "y": 2
+      },
+      {
+       "id": "R6",
+       "kind": "router",
+       "label": "R6",
+       "sub": "No PIM toward R5",
+       "x": 4.5,
+       "y": 2
+      },
+      {
+       "id": "R5",
+       "kind": "router",
+       "label": "R5",
+       "sub": "Last hop",
+       "x": 3,
+       "y": 4
+      },
+      {
+       "id": "RCV",
+       "kind": "host",
+       "label": "Receivers",
+       "x": 3,
+       "y": 6
+      }
+     ],
+     "links": [
+      {
+       "a": "SRC",
+       "b": "R3"
+      },
+      {
+       "a": "SRC",
+       "b": "R6"
+      },
+      {
+       "a": "R3",
+       "b": "R5",
+       "label": "multicast arrives",
+       "bEnd": "Gi0/1",
+       "style": "bold"
+      },
+      {
+       "a": "R6",
+       "b": "R5",
+       "label": "unicast best path",
+       "bEnd": "Gi0/2",
+       "style": "dashed"
+      },
+      {
+       "a": "R5",
+       "b": "RCV"
+      }
+     ]
     },
     {
      "type": "table",
@@ -4434,6 +6191,16 @@ TRACK.modules.push({
      ]
     },
     {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "Every multicast forwarding decision depends on the RPF check against the unicast or multicast RIB.",
+      "Troubleshoot from receiver to source: membership, last-hop state, RPF neighbour, then walk upstream.",
+      "Fix RPF with the least disruptive tool: enable PIM on the new path, align metrics, or use a documented static mroute or multicast BGP.",
+      "If nobody beyond the source subnet receives traffic, check the source TTL first."
+     ]
+    },
+    {
      "type": "quiz",
      "items": [
       {
@@ -4504,7 +6271,7 @@ TRACK.modules.push({
     "Design a DSCP plan with trust boundaries and consistent mapping into MPLS and overlays.",
     "Configure priority and weighted queuing, and explain why queuing only matters during congestion.",
     "Choose between policing and shaping and calculate committed bursts and intervals.",
-    "Apply congestion avoidance with WRED and ECN."
+    "Apply congestion avoidance with WRED, ECN and L4S, and explain when PFC makes a class lossless."
    ],
    "blocks": [
     {
@@ -4599,6 +6366,22 @@ TRACK.modules.push({
        "8 / 1",
        "Minimal share; first to be starved"
       ]
+     ]
+    },
+    {
+     "type": "packet",
+     "title": "The DiffServ field in the IP header",
+     "caption": "The old type-of-service byte now holds a 6-bit DSCP and a 2-bit ECN field. ECN-capable senders set 01 or 10, and a congested queue rewrites them to 11 (Congestion Experienced) instead of dropping; L4S uses ECT(1) to select its low-latency queue.",
+     "width": 8,
+     "fields": [
+      {
+       "label": "DSCP",
+       "bits": 6
+      },
+      {
+       "label": "ECN",
+       "bits": 2
+      }
      ]
     },
     {
@@ -4717,8 +6500,57 @@ TRACK.modules.push({
        "Fair queuing",
        "Separate flow queues within a class",
        "Stops one elephant flow from dominating best effort"
+      ],
+      [
+       "L4S with dual-queue AQM",
+       "ECT(1)-marked traffic gets a shallow queue with immediate ECN marking; classic traffic keeps its own queue",
+       "Standardised in 2023 (RFC 9330 to 9332); needs scalable congestion control at the endpoints"
+      ],
+      [
+       "PFC (IEEE 802.1Qbb)",
+       "Pauses one priority on the upstream link when a buffer fills, making that class lossless",
+       "Only for dedicated lossless classes such as RoCEv2; can spread congestion through pause storms and head-of-line blocking"
       ]
      ]
+    },
+    {
+     "type": "callout",
+     "kind": "insight",
+     "title": "Lossless Ethernet for AI and storage",
+     "text": "RoCEv2 traffic in GPU clusters and some storage networks degrades sharply when packets are lost, so its class is engineered to be **lossless**: ECN marking, with an endpoint congestion-control loop such as DCQCN, slows senders early, and **PFC** pauses that one priority hop by hop only as a last resort. The ECN threshold must sit well below the PFC pause threshold, with headroom buffer sized for link speed and cable length; otherwise PFC fires first and spreads congestion backwards through the fabric. Keep every other class lossy."
+    },
+    {
+     "type": "chart",
+     "title": "ECN marking profile for a lossless class (illustrative)",
+     "caption": "Illustrative values: no marking below 200 KB of queue, a linear rise to 20% at 600 KB, then every packet marked. The PFC pause threshold should sit above this whole curve so ECN acts first.",
+     "kind": "line",
+     "labels": [
+      "0 KB",
+      "100 KB",
+      "200 KB",
+      "300 KB",
+      "400 KB",
+      "500 KB",
+      "600 KB",
+      "700 KB"
+     ],
+     "series": [
+      {
+       "name": "Marking probability",
+       "values": [
+        0,
+        0,
+        0,
+        5,
+        10,
+        15,
+        20,
+        100
+       ]
+      }
+     ],
+     "unit": "%",
+     "yLabel": "Packets marked"
     },
     {
      "type": "scenario",
@@ -4794,6 +6626,16 @@ TRACK.modules.push({
        "term": "Hierarchical QoS",
        "def": "Nested policies, typically a parent shaper with a child queuing policy."
       }
+     ]
+    },
+    {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "QoS decides who suffers under congestion; it does not create bandwidth.",
+      "Classify and mark once at a trust boundary, and keep DSCP, CoS, MPLS TC and overlay markings consistent.",
+      "Queuing acts only on a congested interface; shape to the contract so your queues decide instead of the provider's policer.",
+      "ECN and modern AQM such as L4S signal congestion without drops; PFC belongs only to dedicated lossless classes."
      ]
     },
     {
@@ -4916,7 +6758,7 @@ TRACK.modules.push({
       {
        "name": "One-way delay budget",
        "expr": "codec + packetisation + serialisation + propagation + queuing + jitter buffer",
-       "meaning": "If propagation is 60 ms and the jitter buffer 40 ms, there is about 50 ms left for all queuing and serialisation within a 150 ms target."
+       "meaning": "If propagation is 60 ms, the jitter buffer 40 ms and codec plus packetisation 25 ms, only about 25 ms remain for all queuing and serialisation within a 150 ms target."
       },
       {
        "name": "Priority class size",
@@ -4929,6 +6771,30 @@ TRACK.modules.push({
        "meaning": "Six internal classes may collapse into four provider classes; decide which share a class and re-mark to the provider's expected DSCPs at the CE."
       }
      ]
+    },
+    {
+     "type": "chart",
+     "title": "A 150 ms one-way voice budget (illustrative)",
+     "caption": "Illustrative split matching the formula above: once propagation, the jitter buffer and the codec are paid for, only about 25 ms remain for every queue and serialisation delay on the path.",
+     "kind": "bar",
+     "labels": [
+      "Codec and packetisation",
+      "Propagation",
+      "Jitter buffer",
+      "Queuing and serialisation"
+     ],
+     "series": [
+      {
+       "name": "Milliseconds",
+       "values": [
+        25,
+        60,
+        40,
+        25
+       ]
+      }
+     ],
+     "unit": " ms"
     },
     {
      "type": "template",
@@ -4990,6 +6856,85 @@ TRACK.modules.push({
       " service-policy input LAN-INGRESS-MARK"
      ],
      "note": "The child policy is the WAN-QUEUING policy from the previous lesson; its percentages now apply to the 200 Mbit/s shaped rate, not to 1 Gbit/s. Marking on LAN ingress makes this router the trust boundary for unmanaged devices."
+    },
+    {
+     "type": "topology",
+     "title": "One QoS policy, five domains",
+     "caption": "The same class model is enforced at every hop: marked at the trust boundary, shaped and queued at the WAN edge, mapped into MPLS TC or the tunnel's outer DSCP, and queued again in the data centre.",
+     "nodes": [
+      {
+       "id": "PH",
+       "kind": "phone",
+       "label": "IP phone",
+       "sub": "Marks EF",
+       "x": 0,
+       "y": 3
+      },
+      {
+       "id": "AS",
+       "kind": "switch",
+       "label": "Access switch",
+       "sub": "Trust boundary",
+       "x": 1.5,
+       "y": 3
+      },
+      {
+       "id": "BR",
+       "kind": "router",
+       "label": "BR-EDGE",
+       "sub": "Shape 200M + LLQ",
+       "x": 3,
+       "y": 3
+      },
+      {
+       "id": "W",
+       "kind": "cloud",
+       "label": "MPLS / SD-WAN",
+       "sub": "DSCP → TC or outer header",
+       "x": 4.5,
+       "y": 1
+      },
+      {
+       "id": "DC",
+       "kind": "router",
+       "label": "DC border",
+       "sub": "Queues on DSCP",
+       "x": 6,
+       "y": 3
+      },
+      {
+       "id": "SRV",
+       "kind": "server",
+       "label": "Server",
+       "x": 7,
+       "y": 5
+      }
+     ],
+     "links": [
+      {
+       "a": "PH",
+       "b": "AS",
+       "label": "EF"
+      },
+      {
+       "a": "AS",
+       "b": "BR",
+       "label": "EF, AF21"
+      },
+      {
+       "a": "BR",
+       "b": "W",
+       "label": "200M shaped"
+      },
+      {
+       "a": "W",
+       "b": "DC"
+      },
+      {
+       "a": "DC",
+       "b": "SRV"
+      }
+     ]
     },
     {
      "type": "cli",
@@ -5093,6 +7038,16 @@ TRACK.modules.push({
     {
      "type": "reflection",
      "prompt": "Write down the four applications in your organisation whose users complain first when the network is busy. Do they share a class today? What would you change in the policy matrix to protect each one without starving the others?"
+    },
+    {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "Start from business priorities and delay, jitter and loss budgets, then choose a small class model.",
+      "One policy matrix drives every device policy, provider mapping and test case.",
+      "Shape to the contracted rate and size the priority class from busy-hour concurrency.",
+      "Prove QoS with controlled congestion tests and per-class counters, and copy DSCP into tunnel headers."
+     ]
     },
     {
      "type": "quiz",
@@ -5321,6 +7276,76 @@ TRACK.modules.push({
      ]
     },
     {
+     "type": "sequence",
+     "title": "A safe NETCONF change, step by step",
+     "caption": "The confirmed commit is the safety net: if post-checks fail or the session is cut off, no confirming commit arrives and the device rolls back by itself.",
+     "actors": [
+      "Device",
+      "Automation",
+      "Source of truth"
+     ],
+     "steps": [
+      {
+       "from": 1,
+       "to": 0,
+       "label": "hello: capabilities"
+      },
+      {
+       "from": 0,
+       "to": 1,
+       "label": "hello: candidate, confirmed-commit",
+       "reply": true
+      },
+      {
+       "from": 1,
+       "to": 0,
+       "label": "lock candidate"
+      },
+      {
+       "from": 1,
+       "to": 0,
+       "label": "edit-config (merge) to candidate"
+      },
+      {
+       "from": 1,
+       "to": 0,
+       "label": "validate"
+      },
+      {
+       "from": 1,
+       "to": 0,
+       "label": "commit confirmed, timeout 300 s"
+      },
+      {
+       "from": 1,
+       "to": 2,
+       "label": "Fetch intent for post-checks"
+      },
+      {
+       "from": 2,
+       "to": 1,
+       "label": "Expected state",
+       "reply": true
+      },
+      {
+       "from": 1,
+       "to": 0,
+       "label": "commit (confirming)",
+       "note": "Only if post-checks pass"
+      },
+      {
+       "from": 1,
+       "to": 0,
+       "label": "unlock candidate"
+      },
+      {
+       "from": 0,
+       "to": 0,
+       "label": "No confirm in 300 s? roll back"
+      }
+     ]
+    },
+    {
      "type": "cli",
      "title": "A confirmed NETCONF change",
      "device": "NETCONF RPC payload (XML)",
@@ -5361,6 +7386,47 @@ TRACK.modules.push({
       "}"
      ],
      "note": "Sample mode sends every 10 seconds whether or not values change; on-change mode suits state such as oper-status or BGP session state. The password is prompted for, never written into scripts or history."
+    },
+    {
+     "type": "sequence",
+     "title": "gNMI on-change subscription",
+     "caption": "After the initial snapshot and sync marker, the router sends nothing until a state really changes, which is why on-change suits session state across thousands of devices.",
+     "actors": [
+      "Collector",
+      "Router",
+      "BGP peer"
+     ],
+     "steps": [
+      {
+       "from": 0,
+       "to": 1,
+       "label": "Subscribe: STREAM, ON_CHANGE",
+       "note": "Path: BGP neighbour state"
+      },
+      {
+       "from": 1,
+       "to": 0,
+       "label": "Initial updates, every neighbour",
+       "reply": true
+      },
+      {
+       "from": 1,
+       "to": 0,
+       "label": "sync_response",
+       "reply": true
+      },
+      {
+       "from": 2,
+       "to": 1,
+       "label": "Session drops"
+      },
+      {
+       "from": 1,
+       "to": 0,
+       "label": "Update: neighbour 10.0.0.9 IDLE",
+       "reply": true
+      }
+     ]
     },
     {
      "type": "framework",
@@ -5473,6 +7539,16 @@ TRACK.modules.push({
      ]
     },
     {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "YANG defines the data; NETCONF, RESTCONF and gNMI move it with different strengths.",
+      "Use candidate, validate and confirmed commit so a change that cuts you off rolls itself back.",
+      "Use gNMI on-change for state and sampling for counters.",
+      "RESTCONF PUT replaces and PATCH merges: target the narrowest resource."
+     ]
+    },
+    {
      "type": "quiz",
      "items": [
       {
@@ -5578,6 +7654,42 @@ TRACK.modules.push({
        "text": "Assertions on operational state compared with intent"
       }
      ]
+    },
+    {
+     "type": "tree",
+     "title": "Where each decision lives in the source of truth",
+     "caption": "Each decision has exactly one home; templates read from it and tests assert against it. Anything that exists only in a running configuration is drift.",
+     "root": {
+      "label": "Source of truth",
+      "children": [
+       {
+        "label": "Global",
+        "text": "ASN, RD and RT schemes, QoS class model, policy communities"
+       },
+       {
+        "label": "Site",
+        "text": "Prefixes, transports, circuit IDs"
+       },
+       {
+        "label": "Device",
+        "text": "Role, loopback, platform, interfaces"
+       },
+       {
+        "label": "Service",
+        "children": [
+         {
+          "label": "VRF name, id and RTs"
+         },
+         {
+          "label": "PE-CE neighbours"
+         },
+         {
+          "label": "Multicast groups"
+         }
+        ]
+       }
+      ]
+     }
     },
     {
      "type": "cli",
@@ -5744,6 +7856,16 @@ TRACK.modules.push({
       "Out-of-band changes are detected and reconciled before deployment",
       "Credentials come from a vault, never from repositories or scripts",
       "Test output names the device and expectation that failed"
+     ]
+    },
+    {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "Keep intent as structured data with exactly one authoritative home per decision.",
+      "Render with strict undefined handling and snapshot-test the templates.",
+      "Verification asserts intended state per device and names what failed.",
+      "Detect and reconcile drift before every deployment."
      ]
     },
     {
@@ -5958,38 +8080,129 @@ TRACK.modules.push({
      ]
     },
     {
-     "type": "framework",
+     "type": "topology",
+     "title": "Telemetry-driven operations",
+     "caption": "Telemetry flows up from the devices; the rules engine decides, the automation layer acts through the same pipeline as any change, and anything outside its guardrails escalates to people.",
+     "nodes": [
+      {
+       "id": "COL",
+       "kind": "process",
+       "label": "Collector",
+       "sub": "gNMI, syslog, flows",
+       "x": 1,
+       "y": 2
+      },
+      {
+       "id": "TS",
+       "kind": "db",
+       "label": "Time-series DB",
+       "x": 3,
+       "y": 2
+      },
+      {
+       "id": "RU",
+       "kind": "process",
+       "label": "Rules engine",
+       "sub": "Preconditions, limits",
+       "x": 5,
+       "y": 2
+      },
+      {
+       "id": "OC",
+       "kind": "team",
+       "label": "On-call",
+       "sub": "Tickets and pages",
+       "x": 7,
+       "y": 2
+      },
+      {
+       "id": "R1",
+       "kind": "router",
+       "label": "PE1",
+       "sub": "Streams telemetry",
+       "x": 0,
+       "y": 4
+      },
+      {
+       "id": "R2",
+       "kind": "l3switch",
+       "label": "Leaf7",
+       "sub": "Streams telemetry",
+       "x": 2,
+       "y": 4
+      },
+      {
+       "id": "AU",
+       "kind": "api",
+       "label": "Automation",
+       "sub": "Drain, verify, undo",
+       "x": 5,
+       "y": 4
+      }
+     ],
+     "links": [
+      {
+       "a": "R1",
+       "b": "COL"
+      },
+      {
+       "a": "R2",
+       "b": "COL"
+      },
+      {
+       "a": "COL",
+       "b": "TS"
+      },
+      {
+       "a": "TS",
+       "b": "RU"
+      },
+      {
+       "a": "RU",
+       "b": "AU"
+      },
+      {
+       "a": "RU",
+       "b": "OC",
+       "label": "escalate"
+      },
+      {
+       "a": "AU",
+       "b": "R2",
+       "label": "change via pipeline",
+       "style": "dashed"
+      }
+     ]
+    },
+    {
+     "type": "cycle",
      "title": "Closed loop with guardrails",
+     "caption": "Every turn must pass the guardrails before acting and must verify afterwards; a loop that cannot verify its effect undoes the action and hands over to people.",
+     "center": "Guarded loop",
      "items": [
       {
-       "label": "SENS",
-       "title": "Sense",
-       "text": "Stream the metrics and states that define the condition, with timestamps."
+       "label": "Sense",
+       "text": "Stream the metrics and states that define the condition, with timestamps"
       },
       {
-       "label": "CORR",
-       "title": "Correlate",
-       "text": "Confirm the condition persists and is not explained by a change in progress."
+       "label": "Correlate",
+       "text": "Confirm it persists and is not explained by a change in progress"
       },
       {
-       "label": "PRE",
-       "title": "Preconditions",
-       "text": "Act only if redundancy exists, no change freeze applies and the target is healthy enough."
+       "label": "Check preconditions",
+       "text": "Redundancy exists, no change freeze, target healthy enough"
       },
       {
-       "label": "BLST",
-       "title": "Blast-radius limit",
-       "text": "At most one action per device and N per network per hour; never on both sides of a pair."
+       "label": "Limit blast radius",
+       "text": "One action per device, N per network per hour, never both sides of a pair"
       },
       {
-       "label": "ACT",
-       "title": "Act reversibly",
-       "text": "Prefer draining (cost out, overload bit) to shutting interfaces."
+       "label": "Act reversibly",
+       "text": "Drain with metrics or the overload bit rather than shutting"
       },
       {
-       "label": "VER",
-       "title": "Verify and roll back",
-       "text": "Confirm the expected effect within a deadline; undo and escalate if not."
+       "label": "Verify or undo",
+       "text": "Confirm the effect by a deadline; roll back and escalate if not"
       }
      ]
     },
@@ -6033,6 +8246,7 @@ TRACK.modules.push({
        "title": "Required guardrails",
        "items": [
         "Read-only access by default; no direct writes to devices",
+        "AI agents that call tools get read-only tools by default; any write goes through the change pipeline with human approval",
         "Every suggested change goes through the same pipeline and approval",
         "Outputs cite their sources; engineers verify syntax and facts",
         "Sensitive data minimised and governed; prompts and actions logged"
@@ -6124,6 +8338,16 @@ TRACK.modules.push({
        "term": "Guardrail",
        "def": "A control that limits what automation or AI assistance can do, such as preconditions, approvals and rate limits."
       }
+     ]
+    },
+    {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "A pipeline runs the same checks on every change: schema, rendering, static analysis, virtual lab, approval, canary and post-checks.",
+      "Closed-loop automation needs preconditions, blast-radius limits, reversible actions and verification.",
+      "Drain rather than shut, and never let automation remove the last path.",
+      "AI assistance drafts and explains inside the pipeline; it never bypasses checks or approval."
      ]
     },
     {
@@ -6248,6 +8472,184 @@ TRACK.modules.push({
         "Branch access switching with LACP and spanning tree",
         "Dependency map and verification plan"
        ]
+      }
+     ]
+    },
+    {
+     "type": "topology",
+     "title": "Kestrel Freight mock lab",
+     "caption": "Every task maps onto this drawing: the SR-MPLS core and reflector (T2 to T4), the EVPN fabric behind PE2 (T5), the SD-WAN branch reaching the DC hub (T6), SSM video from the DC to branches (T7) and the automation host (T8).",
+     "nodes": [
+      {
+       "id": "AUT",
+       "kind": "server",
+       "label": "Automation",
+       "sub": "NETCONF, tests",
+       "x": 0,
+       "y": 0
+      },
+      {
+       "id": "RR",
+       "kind": "router",
+       "label": "RR",
+       "sub": "10.255.0.100",
+       "x": 3,
+       "y": 0
+      },
+      {
+       "id": "PE1",
+       "kind": "router",
+       "label": "PE1",
+       "x": 1,
+       "y": 2
+      },
+      {
+       "id": "P1",
+       "kind": "router",
+       "label": "P1",
+       "x": 3,
+       "y": 1
+      },
+      {
+       "id": "P2",
+       "kind": "router",
+       "label": "P2",
+       "x": 3,
+       "y": 3
+      },
+      {
+       "id": "PE2",
+       "kind": "router",
+       "label": "PE2",
+       "x": 5,
+       "y": 2
+      },
+      {
+       "id": "BL",
+       "kind": "l3switch",
+       "label": "Border leaf",
+       "sub": "DC hub",
+       "x": 7,
+       "y": 2
+      },
+      {
+       "id": "LF1",
+       "kind": "l3switch",
+       "label": "Leaf1",
+       "x": 6,
+       "y": 4
+      },
+      {
+       "id": "LF2",
+       "kind": "l3switch",
+       "label": "Leaf2",
+       "sub": "Video source",
+       "x": 7,
+       "y": 4
+      },
+      {
+       "id": "B1",
+       "kind": "router",
+       "label": "Branch 1",
+       "sub": "CORP",
+       "x": 0,
+       "y": 4
+      },
+      {
+       "id": "B3",
+       "kind": "router",
+       "label": "Branch 3",
+       "sub": "GUEST spoke",
+       "x": 2,
+       "y": 5
+      },
+      {
+       "id": "B2",
+       "kind": "router",
+       "label": "Branch 2",
+       "sub": "SD-WAN",
+       "x": 4,
+       "y": 5
+      }
+     ],
+     "links": [
+      {
+       "a": "AUT",
+       "b": "PE1",
+       "style": "dashed"
+      },
+      {
+       "a": "RR",
+       "b": "PE1",
+       "style": "dashed"
+      },
+      {
+       "a": "RR",
+       "b": "PE2",
+       "style": "dashed"
+      },
+      {
+       "a": "PE1",
+       "b": "P1"
+      },
+      {
+       "a": "PE1",
+       "b": "P2"
+      },
+      {
+       "a": "P1",
+       "b": "P2"
+      },
+      {
+       "a": "P1",
+       "b": "PE2"
+      },
+      {
+       "a": "P2",
+       "b": "PE2"
+      },
+      {
+       "a": "PE2",
+       "b": "BL"
+      },
+      {
+       "a": "BL",
+       "b": "LF1"
+      },
+      {
+       "a": "BL",
+       "b": "LF2"
+      },
+      {
+       "a": "B1",
+       "b": "PE1"
+      },
+      {
+       "a": "B3",
+       "b": "PE1"
+      },
+      {
+       "a": "B2",
+       "b": "BL",
+       "label": "SD-WAN",
+       "style": "tunnel"
+      }
+     ],
+     "zones": [
+      {
+       "label": "SR-MPLS core",
+       "x": 1,
+       "y": 1,
+       "w": 5,
+       "h": 3
+      },
+      {
+       "label": "EVPN fabric",
+       "x": 6,
+       "y": 2,
+       "w": 2,
+       "h": 3,
+       "tone": "accent"
       }
      ]
     },
@@ -6414,6 +8816,45 @@ TRACK.modules.push({
      ]
     },
     {
+     "type": "tree",
+     "title": "The mock lab's dependency map",
+     "caption": "T2 is the root of almost everything and T7 ends the longest chain. T1 is independent, while T6 and T8 are leaves that can be deferred if time runs out.",
+     "root": {
+      "label": "T2 IS-IS, SR, TI-LFA",
+      "text": "14 points",
+      "children": [
+       {
+        "label": "T3 CORP L3VPN",
+        "text": "16 points",
+        "children": [
+         {
+          "label": "T4 GUEST hub-and-spoke",
+          "text": "10 points"
+         },
+         {
+          "label": "T5 EVPN fabric",
+          "text": "16 points",
+          "children": [
+           {
+            "label": "T7 SSM and QoS",
+            "text": "14 points, also needs T3"
+           }
+          ]
+         },
+         {
+          "label": "T6 SD-WAN branch",
+          "text": "8 points, leaf"
+         },
+         {
+          "label": "T8 NETCONF and tests",
+          "text": "14 points, leaf"
+         }
+        ]
+       }
+      ]
+     }
+    },
+    {
      "type": "template",
      "title": "Mock-lab scoring sheet",
      "purpose": "Score each task honestly against its verification statement, not against how much you configured.",
@@ -6487,6 +8928,16 @@ TRACK.modules.push({
       "I ran a full re-verification sweep at the end",
       "I scored myself against evidence, not effort",
       "I wrote down three lessons for the next attempt"
+     ]
+    },
+    {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "Read the whole lab and draw the dependency map before configuring anything.",
+      "Verify each task against its own verification statement before moving on.",
+      "Protect points already earned with a sweep before chasing new ones.",
+      "Score yourself against evidence, not effort."
      ]
     },
     {
@@ -6567,28 +9018,43 @@ TRACK.modules.push({
      "text": "Expert practical exams are as much about judgement under time pressure as about technical depth. Candidates who fail often know the material but lose points to unread requirements, unverified work, rabbit holes and changes that break earlier tasks. This lesson turns the Method segment of the Mastery Ring into an exam-day routine and then introduces the **ZCIE capstone**, the project that closes the programme."
     },
     {
-     "type": "flow",
-     "title": "Exam-day timeline",
+     "type": "timeline",
+     "title": "Exam-day timeline for a six-hour lab",
+     "caption": "Marks for a 360-minute lab with 25 minutes of reading and a 20-minute sweep, matching the time budget below.",
      "items": [
       {
-       "label": "Before",
-       "text": "Sleep, logistics checked, keyboard and environment familiar"
+       "when": "Day before",
+       "label": "Prepare",
+       "text": "Sleep, logistics, a familiar keyboard and environment"
       },
       {
-       "label": "Read",
-       "text": "Full read-through, dependency map, points per task, assumptions noted"
+       "when": "0:00",
+       "label": "Read and map",
+       "text": "Full read-through, dependency map, points per task, assumptions"
       },
       {
+       "when": "0:25",
        "label": "Build",
-       "text": "Foundations first, verify each task immediately"
+       "text": "Foundations first; verify each task immediately"
       },
       {
-       "label": "Checkpoints",
-       "text": "At 50% and 80% of time: progress against plan, re-prioritise"
+       "when": "3:00",
+       "label": "50% checkpoint",
+       "text": "Progress against plan; re-prioritise"
       },
       {
+       "when": "4:48",
+       "label": "80% checkpoint",
+       "text": "Defer or drop low-value leaf tasks"
+      },
+      {
+       "when": "5:40",
        "label": "Sweep",
-       "text": "Final re-verification of everything, configurations saved"
+       "text": "Re-verify everything and save configurations"
+      },
+      {
+       "when": "6:00",
+       "label": "End"
       }
      ]
     },
@@ -6636,6 +9102,43 @@ TRACK.modules.push({
        "label": "NOTE",
        "title": "Write assumptions",
        "text": "When wording is ambiguous, choose the minimal literal interpretation and record it."
+      }
+     ]
+    },
+    {
+     "type": "matrix",
+     "title": "Task triage under time pressure",
+     "caption": "Order by dependants first and points second: a cheap task that unlocks others belongs early, while an expensive independent task waits until foundations are proven.",
+     "x": "Points for the task (low → high)",
+     "y": "Tasks that depend on it (few → many)",
+     "quadrants": [
+      {
+       "title": "Do early anyway",
+       "items": [
+        "Few points, many dependants",
+        "An IGP fault that blocks BGP tasks"
+       ]
+      },
+      {
+       "title": "Do first",
+       "items": [
+        "Many points, many dependants",
+        "T2 and T3 in the mock lab"
+       ]
+      },
+      {
+       "title": "Defer or drop",
+       "items": [
+        "Few points, nothing depends on it",
+        "A cosmetic logging task"
+       ]
+      },
+      {
+       "title": "Do after foundations",
+       "items": [
+        "Many points, independent",
+        "T8 NETCONF and tests"
+       ]
       }
      ]
     },
@@ -6792,6 +9295,16 @@ TRACK.modules.push({
     {
      "type": "reflection",
      "prompt": "Look back over all eight segments of the ZCIE Mastery Ring. Which segment would cost you the most points if the exam were tomorrow? Write a two-week plan that closes that gap, including one full mock lab under timed conditions."
+    },
+    {
+     "type": "keypoints",
+     "title": "Key takeaways",
+     "items": [
+      "Plan time boxes from the published duration and points, with checkpoints at 50% and 80%.",
+      "Stay in scope, verify immediately and save after every verified task.",
+      "For ambiguous wording choose the minimal literal interpretation and record the assumption.",
+      "Fix tickets minimally and prove that nothing else changed."
+     ]
     },
     {
      "type": "quiz",
